@@ -6,7 +6,7 @@ embedded = true
 name = "bigfive-afiliadas"
 
 [access_scopes]
-scopes = "read_orders,read_price_rules,read_discounts"
+scopes = "read_orders,read_price_rules,read_discounts,write_price_rules,write_discounts"
 
 [webhooks]
 api_version = "2026-07"
@@ -27,5 +27,4 @@ api_version = "2026-07"
 redirect_urls = [ "https://bigfive-afiliadas.vercel.app/auth/callback" ]
 
 [build]
-include_config_on_deploy = true
 automatically_update_urls_on_dev = true
