@@ -78,6 +78,8 @@ export default function PainelConfiguracoes() {
                   <input
                     name="vendas_ate"
                     type="number"
+                    step="0.01"
+                    min="0.01"
                     defaultValue={tier.vendas_ate ?? ""}
                     placeholder="Ilimitado (topo)"
                     style={inputStyle}
