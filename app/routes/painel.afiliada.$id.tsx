@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import type { LoaderFunctionArgs, ActionFunctionArgs } from "react-router";
 import { useLoaderData, useFetcher, Link, Form, useSearchParams } from "react-router";
 import { requireAuth } from "../lib/painel.auth.server";
@@ -92,6 +92,12 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
     return { sucesso: "pago" };
   }
 
+  if (form.get("intent") === "deletar_pagamento") {
+    const pagamentoId = form.get("pagamento_id") as string;
+    await supabase.from("pagamentos").delete().eq("id", pagamentoId);
+    return { sucesso: "deletado" };
+  }
+
   if (form.get("intent") === "editar") {
     const { error } = await supabase.from("afiliadas").update({
       nome: form.get("nome"),
@@ -125,6 +131,12 @@ export default function PainelAfiliadaDetalhe() {
   const fetcher = useFetcher<{ sucesso?: string; erro?: string }>();
   const [searchParams] = useSearchParams();
   const [editando, setEditando] = useState(false);
+  const [confirmado, setConfirmado] = useState(false);
+
+  // Reseta checkbox após pagamento registrado com sucesso
+  useEffect(() => {
+    if (fetcher.data?.sucesso === "pago") setConfirmado(false);
+  }, [fetcher.data]);
 
   if (!afiliada) return <p>Afiliada não encontrada.</p>;
 
@@ -257,11 +269,19 @@ export default function PainelAfiliadaDetalhe() {
 
                 <input type="number" name="valor" defaultValue={aReceber} step="0.01" style={inputStyle} />
                 <input type="text" name="observacao" placeholder="Observação (opcional)" style={inputStyle} />
-                {/* Issue #4: desabilita botão durante envio */}
+                <label style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "13px", color: "#555", marginBottom: "12px", cursor: "pointer", userSelect: "none" }}>
+                  <input
+                    type="checkbox"
+                    checked={confirmado}
+                    onChange={e => setConfirmado(e.target.checked)}
+                    style={{ width: "16px", height: "16px", cursor: "pointer", accentColor: "#38a169" }}
+                  />
+                  Confirmo que o pagamento foi realizado
+                </label>
                 <button
                   type="submit"
-                  disabled={isPaying}
-                  style={{ width: "100%", padding: "12px", background: isPaying ? "#888" : "#38a169", color: "#fff", border: "none", borderRadius: "8px", fontWeight: "700", cursor: isPaying ? "not-allowed" : "pointer", fontSize: "14px" }}
+                  disabled={isPaying || !confirmado}
+                  style={{ width: "100%", padding: "12px", background: !confirmado ? "#ccc" : isPaying ? "#888" : "#38a169", color: "#fff", border: "none", borderRadius: "8px", fontWeight: "700", cursor: !confirmado || isPaying ? "not-allowed" : "pointer", fontSize: "14px", transition: "background 0.15s" }}
                 >
                   {isPaying ? "Registrando..." : "✓ Marcar como pago"}
                 </button>
@@ -365,16 +385,28 @@ export default function PainelAfiliadaDetalhe() {
             </div>
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead><tr style={{ background: "#f9f9f9" }}>
-                {["Data", "Mês ref.", "Valor", "Observação"].map(h => <th key={h} style={th}>{h}</th>)}
+                {["Data", "Mês ref.", "Valor", "Observação", ""].map(h => <th key={h} style={th}>{h}</th>)}
               </tr></thead>
               <tbody>
-                {pagamentos.length === 0 && <tr><td colSpan={4} style={{ ...td, textAlign: "center", color: "#999" }}>Nenhum pagamento neste período</td></tr>}
+                {pagamentos.length === 0 && <tr><td colSpan={5} style={{ ...td, textAlign: "center", color: "#999" }}>Nenhum pagamento neste período</td></tr>}
                 {pagamentos.map((p) => (
                   <tr key={p.id} style={{ borderBottom: "1px solid #f5f5f5" }}>
                     <td style={{ ...td, color: "#666" }}>{fmtDate(p.pago_em)}</td>
                     <td style={{ ...td, color: "#888", fontSize: "13px", textTransform: "capitalize" }}>{fmtMes(p.mes_referencia)}</td>
                     <td style={{ ...td, fontWeight: "700", color: "#38a169" }}>{fmt(p.valor)}</td>
                     <td style={{ ...td, color: "#888", fontSize: "13px" }}>{p.observacao || "—"}</td>
+                    <td style={td}>
+                      <fetcher.Form
+                        method="post"
+                        onSubmit={e => { if (!window.confirm(`Remover pagamento de ${fmt(p.valor)}?`)) e.preventDefault(); }}
+                      >
+                        <input type="hidden" name="intent" value="deletar_pagamento" />
+                        <input type="hidden" name="pagamento_id" value={p.id} />
+                        <button type="submit" style={{ background: "none", border: "none", color: "#e53e3e", cursor: "pointer", fontSize: "13px", fontWeight: "600", padding: "2px 6px", borderRadius: "4px" }}>
+                          ✕ Remover
+                        </button>
+                      </fetcher.Form>
+                    </td>
                   </tr>
                 ))}
               </tbody>
