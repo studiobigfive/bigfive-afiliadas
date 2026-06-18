@@ -44,6 +44,12 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     return { sucesso: true };
   }
 
+  if (intent === "excluir") {
+    const id = form.get("id") as string;
+    await supabase.from("designers").delete().eq("id", id);
+    return { sucesso: true };
+  }
+
   return null;
 };
 
@@ -199,6 +205,19 @@ export default function PainelDesigners() {
                   }}
                 >
                   {d.ativo ? "Desativar" : "Ativar"}
+                </button>
+              </fetcher.Form>
+              <fetcher.Form
+                method="post"
+                onSubmit={(e) => { if (!window.confirm(`Excluir "${d.nome}"? Isso remove todos os dados vinculados.`)) e.preventDefault(); }}
+              >
+                <input type="hidden" name="intent" value="excluir" />
+                <input type="hidden" name="id" value={d.id} />
+                <button
+                  type="submit"
+                  style={{ padding: "6px 10px", border: "1px solid #ddd", color: "#aaa", background: "transparent", borderRadius: "6px", fontSize: "13px", cursor: "pointer" }}
+                >
+                  ✕
                 </button>
               </fetcher.Form>
             </div>
