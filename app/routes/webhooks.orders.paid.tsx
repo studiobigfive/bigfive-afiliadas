@@ -1,7 +1,7 @@
 import type { ActionFunctionArgs } from "react-router";
 import { authenticate } from "../shopify.server";
 import { supabase } from "../lib/supabase.server";
-import { calcularComissao, mesAtual } from "../lib/comissao";
+import { mesAtual } from "../lib/comissao";
 
 export const action = async ({ request }: ActionFunctionArgs) => {
   const { payload, topic } = await authenticate.webhook(request);
@@ -18,21 +18,16 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   // Verifica se algum cupom pertence a uma afiliada
   const { data: afiliada } = await supabase
     .from("afiliadas")
-    .select("id")
+    .select("id, percentual_comissao")
     .in("cupom", discountCodes)
     .eq("ativo", true)
     .single();
 
   if (!afiliada) return new Response("ok", { status: 200 });
 
-  // Busca tiers de comissão
-  const { data: tiers } = await supabase
-    .from("tiers_comissao")
-    .select("vendas_ate, percentual")
-    .order("vendas_ate");
-
   const valorTotal = parseFloat(order.total_price ?? "0");
-  const comissao = calcularComissao(valorTotal, tiers ?? []);
+  const percentual = afiliada.percentual_comissao ?? 10;
+  const comissao = Math.round(valorTotal * (percentual / 100) * 100) / 100;
   const mes = mesAtual();
 
   // Salva o pedido (ignora duplicata)

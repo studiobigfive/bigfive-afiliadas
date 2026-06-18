@@ -64,6 +64,9 @@ export default function PainelAfiliadaDetalhe() {
         <div style={{ background: "#fff", borderRadius: "12px", padding: "24px", boxShadow: "0 1px 3px rgba(0,0,0,0.08)" }}>
           <p style={{ margin: "0 0 4px", fontSize: "11px", fontWeight: "700", color: "#999", textTransform: "uppercase", letterSpacing: "0.5px" }}>A receber este mês</p>
           <p style={{ margin: "0 0 16px", fontSize: "32px", fontWeight: "800", color: aReceber > 0 ? "#e53e3e" : "#38a169" }}>{fmt(aReceber)}</p>
+          <p style={{ margin: "0 0 12px", fontSize: "13px", color: "#666", background: "#f9f9f9", padding: "10px 12px", borderRadius: "8px" }}>
+            Comissão: <strong style={{ color: "#00C9A7" }}>{afiliada.percentual_comissao ?? 10}% por venda</strong>
+          </p>
           {afiliada.pix && (
             <p style={{ margin: "0 0 20px", fontSize: "13px", color: "#666", background: "#f9f9f9", padding: "10px 12px", borderRadius: "8px" }}>
               PIX: <strong>{afiliada.pix}</strong>

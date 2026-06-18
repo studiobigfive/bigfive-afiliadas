@@ -37,6 +37,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       email: form.get("email"),
       cupom,
       pix: form.get("pix"),
+      percentual_comissao: parseFloat(form.get("percentual_comissao") as string) || 10,
     });
     if (error) return { erro: error.message };
     return { sucesso: true };
@@ -150,6 +151,23 @@ export default function PainelAfiliadas() {
             </div>
           )}
 
+          <div style={{ marginBottom: "14px" }}>
+            <label style={labelStyle}>Comissão da afiliada (%)</label>
+            <div style={{ position: "relative" }}>
+              <input
+                name="percentual_comissao"
+                type="number"
+                min="1"
+                max="100"
+                step="0.5"
+                defaultValue="10"
+                style={{ ...inputStyle, paddingRight: "36px" }}
+              />
+              <span style={{ position: "absolute", right: "12px", top: "50%", transform: "translateY(-50%)", color: "#888", fontWeight: "700" }}>%</span>
+            </div>
+            <span style={{ fontSize: "12px", color: "#999", marginTop: "4px", display: "block" }}>Quanto a afiliada ganha por venda gerada</span>
+          </div>
+
           <div style={{ marginBottom: "24px" }}>
             <label style={labelStyle}>Chave PIX</label>
             <input name="pix" style={inputStyle} placeholder="CPF, e-mail ou telefone" />
@@ -190,6 +208,7 @@ export default function PainelAfiliadas() {
               <div style={{ fontWeight: "600", marginBottom: "2px" }}>{a.nome}</div>
               <div style={{ fontSize: "13px", color: "#888", marginBottom: "6px" }}>{a.email}</div>
               <span style={{ background: "#111", color: "#fff", padding: "2px 8px", borderRadius: "4px", fontSize: "11px", fontWeight: "700", letterSpacing: "1px" }}>{a.cupom}</span>
+              <span style={{ marginLeft: "6px", background: "#f0fdf9", color: "#00C9A7", padding: "2px 8px", borderRadius: "4px", fontSize: "11px", fontWeight: "700" }}>{a.percentual_comissao ?? 10}%</span>
               {!a.ativo && <span style={{ marginLeft: "6px", background: "#fee2e2", color: "#e53e3e", padding: "2px 8px", borderRadius: "4px", fontSize: "11px", fontWeight: "700" }}>INATIVA</span>}
             </div>
             <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
