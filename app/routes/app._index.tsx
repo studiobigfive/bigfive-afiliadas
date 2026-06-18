@@ -52,7 +52,7 @@ export default function Dashboard() {
 
   return (
     <s-page heading={`Afiliadas — ${mesLabel}`}>
-      <s-button slot="primary-action" variant="primary" url="/app/afiliadas/nova">
+      <s-button slot="primary-action" variant="primary" url="/app/afiliadas">
         + Nova afiliada
       </s-button>
 
