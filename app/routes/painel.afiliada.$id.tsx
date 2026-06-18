@@ -22,7 +22,8 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
 
   const pedidosMes = (pedidos ?? []).filter((p) => p.mes_referencia === mes);
   const pagamentosMes = (pagamentos ?? []).filter((p) => p.mes_referencia === mes);
-  const totalComissaoMes = pedidosMes.reduce((s, p) => s + p.comissao, 0);
+  // Exclui cancelados do total de comissão
+  const totalComissaoMes = pedidosMes.filter((p) => !p.cancelado).reduce((s, p) => s + p.comissao, 0);
   const totalPagoMes = pagamentosMes.reduce((s, p) => s + p.valor, 0);
   const aReceber = Math.max(0, totalComissaoMes - totalPagoMes);
 
@@ -149,10 +150,15 @@ export default function PainelAfiliadaDetalhe() {
               <tbody>
                 {pedidosMes.length === 0 && <tr><td colSpan={4} style={{ ...td, textAlign: "center", color: "#999" }}>Nenhum pedido neste mês</td></tr>}
                 {pedidosMes.map((p) => (
-                  <tr key={p.id} style={{ borderBottom: "1px solid #f5f5f5" }}>
-                    <td style={{ ...td, fontWeight: "600" }}>#{p.shopify_order_id}</td>
+                  <tr key={p.id} style={{ borderBottom: "1px solid #f5f5f5", opacity: p.cancelado ? 0.5 : 1 }}>
+                    <td style={{ ...td, fontWeight: "600" }}>
+                      #{p.shopify_order_id}
+                      {p.cancelado && <span style={{ marginLeft: "6px", background: "#fee2e2", color: "#e53e3e", padding: "1px 6px", borderRadius: "4px", fontSize: "10px", fontWeight: "700" }}>CANCELADO</span>}
+                    </td>
                     <td style={{ ...td, color: "#666" }}>{fmt(p.valor_total)}</td>
-                    <td style={{ ...td, fontWeight: "700", color: "#38a169" }}>{fmt(p.comissao)}</td>
+                    <td style={{ ...td, fontWeight: "700", color: p.cancelado ? "#ccc" : "#38a169" }}>
+                      {p.cancelado ? <s>{fmt(p.comissao)}</s> : fmt(p.comissao)}
+                    </td>
                     <td style={{ ...td, color: "#888", fontSize: "13px" }}>{fmtDate(p.criado_em)}</td>
                   </tr>
                 ))}

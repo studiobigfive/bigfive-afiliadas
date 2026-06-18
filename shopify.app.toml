@@ -23,6 +23,10 @@ api_version = "2026-07"
   uri = "/webhooks/orders/paid"
   topics = [ "orders/paid" ]
 
+  [[webhooks.subscriptions]]
+  uri = "/webhooks/orders/cancelled"
+  topics = [ "orders/cancelled" ]
+
 [auth]
 redirect_urls = [ "https://bigfive-afiliadas.vercel.app/auth/callback" ]
 
