@@ -81,7 +81,7 @@ export default function PainelAfiliadas() {
     <div style={{ display: "grid", gridTemplateColumns: "340px 1fr", gap: "24px", alignItems: "start" }}>
       {/* Formulário */}
       <div style={{ background: "#fff", borderRadius: "12px", padding: "24px", boxShadow: "0 1px 3px rgba(0,0,0,0.08)" }}>
-        <h2 style={{ margin: "0 0 20px", fontSize: "16px", fontWeight: "700" }}>Nova afiliada</h2>
+        <h2 style={{ margin: "0 0 20px", fontSize: "16px", fontWeight: "700" }}>Novo participante</h2>
         <fetcher.Form method="post" key={sucesso ? Date.now() : "form"}>
           <input type="hidden" name="intent" value="criar" />
           <input type="hidden" name="tipo_cupom" value={tipoCupom} />
@@ -179,10 +179,10 @@ export default function PainelAfiliadas() {
       {/* Lista */}
       <div style={{ background: "#fff", borderRadius: "12px", boxShadow: "0 1px 3px rgba(0,0,0,0.08)", overflow: "hidden" }}>
         <div style={{ padding: "18px 24px", borderBottom: "1px solid #eee" }}>
-          <h2 style={{ margin: 0, fontSize: "16px", fontWeight: "700" }}>Afiliadas ({afiliadas.length})</h2>
+          <h2 style={{ margin: 0, fontSize: "16px", fontWeight: "700" }}>Participantes ({afiliadas.length})</h2>
         </div>
         {afiliadas.length === 0 && (
-          <p style={{ padding: "40px", textAlign: "center", color: "#999", margin: 0 }}>Nenhuma afiliada cadastrada ainda</p>
+          <p style={{ padding: "40px", textAlign: "center", color: "#999", margin: 0 }}>Nenhum participante cadastrado ainda</p>
         )}
         {afiliadas.map((a) => (
           <div key={a.id} style={{ padding: "16px 24px", borderBottom: "1px solid #f5f5f5", display: "flex", alignItems: "center", justifyContent: "space-between" }}>

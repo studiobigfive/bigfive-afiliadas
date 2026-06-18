@@ -32,7 +32,7 @@ export default function Painel() {
         <span style={{ color: "#fff", fontWeight: "800", fontSize: "16px", letterSpacing: "2px" }}>BIGFIVE</span>
         <nav style={{ display: "flex", gap: "24px" }}>
           {link("/painel", "Dashboard")}
-          {link("/painel/afiliadas", "Afiliadas")}
+          {link("/painel/afiliadas", "Participantes")}
           {link("/painel/configuracoes", "Configurações")}
         </nav>
       </header>

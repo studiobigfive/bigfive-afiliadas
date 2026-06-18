@@ -37,9 +37,9 @@ export default function PainelIndex() {
   return (
     <>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "24px" }}>
-        <h1 style={{ margin: 0, fontSize: "22px", fontWeight: "700", textTransform: "capitalize" }}>Afiliadas — {mesLabel}</h1>
+        <h1 style={{ margin: 0, fontSize: "22px", fontWeight: "700", textTransform: "capitalize" }}>Participantes — {mesLabel}</h1>
         <Link to="/painel/afiliadas" style={{ background: "#111", color: "#fff", padding: "10px 20px", borderRadius: "8px", textDecoration: "none", fontWeight: "600", fontSize: "14px" }}>
-          + Nova afiliada
+          + Novo participante
         </Link>
       </div>
 
@@ -53,14 +53,14 @@ export default function PainelIndex() {
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr style={{ background: "#f9f9f9", borderBottom: "1px solid #eee" }}>
-              {["Afiliada", "Cupom", "Pedidos", "Vendas", "Comissão", "A receber", ""].map(h => (
+              {["Participante", "Cupom", "Pedidos", "Vendas", "Comissão", "A receber", ""].map(h => (
                 <th key={h} style={th}>{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
             {resumo.length === 0 && (
-              <tr><td colSpan={7} style={{ ...td, textAlign: "center", color: "#999" }}>Nenhuma afiliada ativa ainda</td></tr>
+              <tr><td colSpan={7} style={{ ...td, textAlign: "center", color: "#999" }}>Nenhum participante ativo ainda</td></tr>
             )}
             {resumo.map((a) => (
               <tr key={a.id} style={{ borderBottom: "1px solid #f5f5f5" }}>

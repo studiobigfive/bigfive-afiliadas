@@ -16,7 +16,7 @@ export default function AfiliadaLogin() {
       <div style={{ background: "#fff", borderRadius: "20px", padding: "48px 40px", width: "100%", maxWidth: "380px" }}>
         <div style={{ textAlign: "center", marginBottom: "32px" }}>
           <div style={{ fontWeight: "800", fontSize: "18px", letterSpacing: "3px", marginBottom: "16px", color: "#111" }}>BIGFIVE</div>
-          <h1 style={{ margin: "0 0 8px", fontSize: "22px", fontWeight: "700", color: "#111" }}>Portal da afiliada</h1>
+          <h1 style={{ margin: "0 0 8px", fontSize: "22px", fontWeight: "700", color: "#111" }}>Programa de Afiliados</h1>
           <p style={{ margin: 0, color: "#888", fontSize: "14px" }}>Vamos enviar um código para o seu e-mail</p>
         </div>
 

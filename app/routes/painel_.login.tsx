@@ -13,7 +13,7 @@ export default function PainelLogin() {
     <div style={{ minHeight: "100vh", background: "#111", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "Inter, system-ui, sans-serif" }}>
       <div style={{ background: "#fff", borderRadius: "16px", padding: "48px", width: "100%", maxWidth: "380px" }}>
         <h1 style={{ margin: "0 0 4px", fontSize: "22px", fontWeight: "800", letterSpacing: "2px" }}>BIGFIVE</h1>
-        <p style={{ margin: "0 0 32px", color: "#888", fontSize: "14px" }}>Painel de Afiliadas</p>
+        <p style={{ margin: "0 0 32px", color: "#888", fontSize: "14px" }}>Programa de Afiliados</p>
         <Form method="post">
           <label style={{ display: "block", fontWeight: "600", fontSize: "13px", marginBottom: "8px", color: "#444" }}>Senha</label>
           <input

@@ -37,9 +37,9 @@ export default function Dashboard() {
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "28px" }}>
         <div>
           <h1 style={{ margin: "0 0 4px", fontSize: "22px", fontWeight: "700", color: "#111", textTransform: "capitalize" }}>
-            Afiliadas — {mesLabel}
+            Programa de Afiliados — {mesLabel}
           </h1>
-          <p style={{ margin: 0, fontSize: "14px", color: "#6b7280" }}>Gerencie afiliadas e acompanhe comissões</p>
+          <p style={{ margin: 0, fontSize: "14px", color: "#6b7280" }}>Gerencie participantes e acompanhe comissões</p>
         </div>
         <a
           href={PAINEL_URL}
@@ -54,7 +54,7 @@ export default function Dashboard() {
       {/* Stats */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "16px", marginBottom: "28px" }}>
         {[
-          { label: "Afiliadas ativas", value: String(totalAfiliadas), color: "#111" },
+          { label: "Participantes ativos", value: String(totalAfiliadas), color: "#111" },
           { label: "Comissões geradas", value: fmt(totalComissao), color: "#111" },
           { label: "A pagar este mês", value: fmt(totalAReceber), color: totalAReceber > 0 ? "#e53e3e" : "#38a169" },
         ].map(({ label, value, color }) => (
@@ -70,7 +70,7 @@ export default function Dashboard() {
         <div style={{ background: "#111", borderRadius: "16px", padding: "28px", display: "flex", flexDirection: "column", justifyContent: "space-between", minHeight: "160px" }}>
           <div>
             <h2 style={{ margin: "0 0 8px", fontSize: "17px", fontWeight: "700", color: "#fff" }}>Painel admin completo</h2>
-            <p style={{ margin: 0, fontSize: "13px", color: "#999", lineHeight: "1.5" }}>Cadastre afiliadas, registre pagamentos e veja pedidos detalhados</p>
+            <p style={{ margin: 0, fontSize: "13px", color: "#999", lineHeight: "1.5" }}>Cadastre participantes, registre pagamentos e veja pedidos detalhados</p>
           </div>
           <a
             href={PAINEL_URL}
@@ -84,8 +84,8 @@ export default function Dashboard() {
 
         <div style={{ background: "#fff", borderRadius: "16px", padding: "28px", boxShadow: "0 1px 3px rgba(0,0,0,0.08)", display: "flex", flexDirection: "column", justifyContent: "space-between", minHeight: "160px" }}>
           <div>
-            <h2 style={{ margin: "0 0 8px", fontSize: "17px", fontWeight: "700", color: "#111" }}>Portal da afiliada</h2>
-            <p style={{ margin: 0, fontSize: "13px", color: "#888", lineHeight: "1.5" }}>Link para afiliadas verem seus pedidos, comissões e histórico de pagamentos</p>
+            <h2 style={{ margin: "0 0 8px", fontSize: "17px", fontWeight: "700", color: "#111" }}>Programa de Afiliados</h2>
+            <p style={{ margin: 0, fontSize: "13px", color: "#888", lineHeight: "1.5" }}>Link para participantes verem seus pedidos, comissões e histórico de pagamentos</p>
           </div>
           <div style={{ display: "flex", gap: "8px", alignItems: "center", marginTop: "20px" }}>
             <code style={{ flex: 1, background: "#f5f5f5", padding: "10px 12px", borderRadius: "6px", fontSize: "11px", color: "#555", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
