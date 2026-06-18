@@ -1,9 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import type { LoaderFunctionArgs, ActionFunctionArgs } from "react-router";
 import { useLoaderData, Link, Form, useFetcher } from "react-router";
 import { requireAuth } from "../lib/painel.auth.server";
 import { supabase } from "../lib/supabase.server";
-import { buscarProdutos } from "../lib/shopify-admin.server";
 
 function primeiroDiaMes(yyyymm: string) { return `${yyyymm}-01`; }
 function ultimoDiaMes(yyyymm: string) {
@@ -39,7 +38,6 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
   const ateRaw = url.searchParams.get("ate") || hojeStr();
   const de = deRaw <= ateRaw ? deRaw : ateRaw;
   const ate = deRaw <= ateRaw ? ateRaw : deRaw;
-  const busca = url.searchParams.get("busca") ?? "";
 
   const { data: designer } = await supabase
     .from("designers")
@@ -92,11 +90,6 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
   ) / 100;
   const aReceber = Math.max(0, Math.round((totalComissao - totalPago) * 100) / 100);
 
-  let resultadosBusca: Array<{ id: string; title: string; image: string | null }> = [];
-  if (busca.trim()) {
-    try { resultadosBusca = await buscarProdutos(busca.trim()); } catch {}
-  }
-
   const produtosVinculadosIds = (produtos ?? []).map(p => p.shopify_product_id);
 
   return {
@@ -109,11 +102,9 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
     aReceber,
     de,
     ate,
-    busca,
     mesesArray,
     mesPagamento: mesesArray[mesesArray.length - 1] || mesAtualStr(),
     truncated: pedidosFiltrados.length === 100,
-    resultadosBusca,
     produtosVinculadosIds,
   };
 };
@@ -218,8 +209,8 @@ export default function PainelDesignerDetalhe() {
   const {
     designer, produtos, pedidos, pagamentos,
     totalComissao, totalPago, aReceber,
-    de, ate, busca, mesesArray, mesPagamento,
-    truncated, resultadosBusca, produtosVinculadosIds,
+    de, ate, mesesArray, mesPagamento,
+    truncated, produtosVinculadosIds,
   } = useLoaderData<typeof loader>();
 
   const fetcher = useFetcher<{
@@ -228,8 +219,21 @@ export default function PainelDesignerDetalhe() {
     erro_produto?: string;
     erro_editar?: string;
   }>();
+  const buscaFetcher = useFetcher<{ produtos: Array<{ id: string; title: string; image: string | null }> }>();
   const [confirmado, setConfirmado] = useState(false);
   const [editando, setEditando] = useState(false);
+  const [query, setQuery] = useState("");
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+
+  const handleSearch = (value: string) => {
+    setQuery(value);
+    clearTimeout(debounceRef.current);
+    if (value.trim().length >= 2) {
+      debounceRef.current = setTimeout(() => {
+        buscaFetcher.load(`/api/buscar-produtos?q=${encodeURIComponent(value.trim())}`);
+      }, 400);
+    }
+  };
 
   const isPaying = fetcher.state !== "idle" && fetcher.formData?.get("intent") === "pagar";
 
@@ -475,35 +479,33 @@ export default function PainelDesignerDetalhe() {
               </p>
             </div>
 
-            {/* Busca na Shopify */}
+            {/* Busca ao vivo na Shopify */}
             <div style={{ padding: "16px 24px", borderBottom: "1px solid #f5f5f5", background: "#fafafa" }}>
               <p style={{ margin: "0 0 10px", fontSize: "13px", fontWeight: "600", color: "#555" }}>Buscar e vincular produto</p>
-              <Form method="get" style={{ display: "flex", gap: "8px" }}>
-                <input type="hidden" name="de" value={de} />
-                <input type="hidden" name="ate" value={ate} />
+              <div style={{ position: "relative" }}>
                 <input
-                  name="busca"
-                  defaultValue={busca}
-                  placeholder="Ex: Camiseta Transbordados..."
-                  style={{ ...inputStyle, flex: 1 }}
+                  type="text"
+                  value={query}
+                  onChange={e => handleSearch(e.target.value)}
+                  placeholder="Digite para buscar produtos no catálogo..."
+                  style={{ ...inputStyle }}
                 />
-                <button
-                  type="submit"
-                  style={{ padding: "9px 18px", background: "#111", color: "#fff", border: "none", borderRadius: "8px", fontWeight: "700", fontSize: "13px", cursor: "pointer", whiteSpace: "nowrap" }}
-                >
-                  Buscar
-                </button>
-              </Form>
+                {buscaFetcher.state === "loading" && (
+                  <span style={{ position: "absolute", right: "12px", top: "50%", transform: "translateY(-50%)", fontSize: "12px", color: "#aaa" }}>
+                    buscando...
+                  </span>
+                )}
+              </div>
 
-              {/* Resultados da busca */}
-              {busca && resultadosBusca.length === 0 && (
-                <p style={{ margin: "12px 0 0", fontSize: "13px", color: "#999" }}>
-                  Nenhum produto encontrado para "{busca}"
+              {/* Resultados */}
+              {query.trim().length >= 2 && buscaFetcher.state === "idle" && (buscaFetcher.data?.produtos ?? []).length === 0 && (
+                <p style={{ margin: "10px 0 0", fontSize: "13px", color: "#999" }}>
+                  Nenhum produto encontrado para "{query}"
                 </p>
               )}
-              {resultadosBusca.length > 0 && (
-                <div style={{ marginTop: "12px", display: "flex", flexDirection: "column", gap: "6px" }}>
-                  {resultadosBusca.map(produto => {
+              {(buscaFetcher.data?.produtos ?? []).length > 0 && (
+                <div style={{ marginTop: "10px", display: "flex", flexDirection: "column", gap: "6px" }}>
+                  {(buscaFetcher.data!.produtos).map(produto => {
                     const jaVinculado = produtosVinculadosSet.has(produto.id);
                     return (
                       <div key={produto.id} style={{ display: "flex", alignItems: "center", gap: "10px", padding: "10px 14px", background: "#fff", borderRadius: "8px", border: "1px solid #eee" }}>
@@ -511,7 +513,6 @@ export default function PainelDesignerDetalhe() {
                           <img src={produto.image} alt="" width={40} height={40} style={{ objectFit: "cover", borderRadius: "6px", flexShrink: 0 }} />
                         )}
                         <span style={{ flex: 1, fontSize: "14px", fontWeight: "500" }}>{produto.title}</span>
-                        <span style={{ fontSize: "11px", color: "#bbb", flexShrink: 0 }}>#{produto.id}</span>
                         {jaVinculado ? (
                           <span style={{ fontSize: "12px", color: "#38a169", fontWeight: "700", flexShrink: 0 }}>✓ Vinculado</span>
                         ) : (
@@ -534,14 +535,10 @@ export default function PainelDesignerDetalhe() {
               )}
 
               {fetcher.data?.erro_produto && (
-                <p style={{ margin: "8px 0 0", fontSize: "12px", color: "#e53e3e" }}>
-                  {fetcher.data.erro_produto}
-                </p>
+                <p style={{ margin: "8px 0 0", fontSize: "12px", color: "#e53e3e" }}>{fetcher.data.erro_produto}</p>
               )}
               {fetcher.data?.sucesso === "produto_adicionado" && (
-                <p style={{ margin: "8px 0 0", fontSize: "12px", color: "#38a169", fontWeight: "600" }}>
-                  ✓ Produto vinculado!
-                </p>
+                <p style={{ margin: "8px 0 0", fontSize: "12px", color: "#38a169", fontWeight: "600" }}>✓ Produto vinculado!</p>
               )}
             </div>
 
