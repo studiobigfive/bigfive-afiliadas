@@ -1,40 +1,82 @@
 import { useState } from "react";
 import type { LoaderFunctionArgs, ActionFunctionArgs } from "react-router";
-import { useLoaderData, useFetcher, Link, Form } from "react-router";
+import { useLoaderData, useFetcher, Link, Form, useSearchParams } from "react-router";
 import { requireAuth } from "../lib/painel.auth.server";
 import { supabase } from "../lib/supabase.server";
 import { mesAtual } from "../lib/comissao";
+
+function primeiroDiaMes(yyyymm: string) {
+  return `${yyyymm}-01`;
+}
+function ultimoDiaMes(yyyymm: string) {
+  const [a, m] = yyyymm.split("-").map(Number);
+  const ultimo = new Date(a, m, 0).getDate();
+  return `${yyyymm}-${String(ultimo).padStart(2, "0")}`;
+}
+function mesAnterior() {
+  const now = new Date();
+  const y = now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear();
+  const m = now.getMonth() === 0 ? 12 : now.getMonth();
+  return `${y}-${String(m).padStart(2, "0")}`;
+}
+function hojeStr() {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+}
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
   await requireAuth(request);
   const { id } = params;
   const url = new URL(request.url);
-  const mes = url.searchParams.get("mes") || mesAtual();
+
+  // Padrão: mês atual (dia 1 até hoje)
+  const de = url.searchParams.get("de") || primeiroDiaMes(mesAtual());
+  const ate = url.searchParams.get("ate") || hojeStr();
+  // Mês de referência para pagamento = mês do início do período
+  const mesPagamento = de.substring(0, 7);
 
   const { data: afiliada } = await supabase.from("afiliadas").select("*").eq("id", id).single();
-  const { data: pedidos } = await supabase.from("pedidos").select("*").eq("afiliada_id", id).order("criado_em", { ascending: false });
-  const { data: pagamentos } = await supabase.from("pagamentos").select("*").eq("afiliada_id", id).order("pago_em", { ascending: false });
 
-  // Meses disponíveis baseado nos dados
-  const todosMeses = new Set<string>([mesAtual()]);
-  (pedidos ?? []).forEach((p) => todosMeses.add(p.mes_referencia));
-  (pagamentos ?? []).forEach((p) => todosMeses.add(p.mes_referencia));
-  const mesesDisponiveis = Array.from(todosMeses).sort().reverse();
+  // Pedidos dentro do intervalo
+  const { data: pedidos } = await supabase
+    .from("pedidos")
+    .select("*")
+    .eq("afiliada_id", id)
+    .gte("criado_em", `${de}T00:00:00`)
+    .lte("criado_em", `${ate}T23:59:59`)
+    .order("criado_em", { ascending: false });
 
-  const pedidosMes = (pedidos ?? []).filter((p) => p.mes_referencia === mes);
-  const pagamentosMes = (pagamentos ?? []).filter((p) => p.mes_referencia === mes);
-  // Exclui cancelados do total de comissão
-  const totalComissaoMes = pedidosMes.filter((p) => !p.cancelado).reduce((s, p) => s + p.comissao, 0);
-  const totalPagoMes = pagamentosMes.reduce((s, p) => s + p.valor, 0);
-  const aReceber = Math.max(0, totalComissaoMes - totalPagoMes);
+  // Pagamentos: todos os meses que caem dentro do range
+  const mesesNoRange = new Set<string>();
+  const deDate = new Date(de);
+  const ateDate = new Date(ate);
+  const cur = new Date(deDate.getFullYear(), deDate.getMonth(), 1);
+  while (cur <= ateDate) {
+    mesesNoRange.add(`${cur.getFullYear()}-${String(cur.getMonth() + 1).padStart(2, "0")}`);
+    cur.setMonth(cur.getMonth() + 1);
+  }
+  const { data: pagamentos } = await supabase
+    .from("pagamentos")
+    .select("*")
+    .eq("afiliada_id", id)
+    .in("mes_referencia", Array.from(mesesNoRange))
+    .order("pago_em", { ascending: false });
 
-  return { afiliada, pedidosMes, pagamentosMes, aReceber, totalComissaoMes, mes, mesesDisponiveis };
+  const pedidosFiltrados = pedidos ?? [];
+  const pagamentosFiltrados = pagamentos ?? [];
+
+  const totalComissao = pedidosFiltrados.filter((p) => !p.cancelado).reduce((s, p) => s + p.comissao, 0);
+  const totalPago = pagamentosFiltrados.reduce((s, p) => s + p.valor, 0);
+  const aReceber = Math.max(0, totalComissao - totalPago);
+
+  return { afiliada, pedidos: pedidosFiltrados, pagamentos: pagamentosFiltrados, aReceber, totalComissao, de, ate, mesPagamento };
 };
 
 export const action = async ({ request, params }: ActionFunctionArgs) => {
   await requireAuth(request);
   const { id } = params;
   const form = await request.formData();
+
   if (form.get("intent") === "pagar") {
     await supabase.from("pagamentos").insert({
       afiliada_id: id,
@@ -61,26 +103,42 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
 const th: React.CSSProperties = { padding: "10px 16px", textAlign: "left", fontSize: "12px", fontWeight: "700", color: "#666", textTransform: "uppercase" };
 const td: React.CSSProperties = { padding: "12px 16px" };
 const inputStyle: React.CSSProperties = { width: "100%", padding: "10px 12px", border: "1px solid #ddd", borderRadius: "8px", fontSize: "14px", boxSizing: "border-box", marginBottom: "8px" };
+const dateInput: React.CSSProperties = { padding: "7px 10px", border: "1px solid #ddd", borderRadius: "8px", fontSize: "14px", background: "#fff" };
 
-function mesLabel(m: string) {
-  const [ano, num] = m.split("-");
-  return new Date(Number(ano), Number(num) - 1).toLocaleString("pt-BR", { month: "long", year: "numeric" });
+function fmtMes(yyyymm: string) {
+  const [a, m] = yyyymm.split("-");
+  return new Date(Number(a), Number(m) - 1).toLocaleString("pt-BR", { month: "long", year: "numeric" });
 }
 
 export default function PainelAfiliadaDetalhe() {
-  const { afiliada, pedidosMes, pagamentosMes, aReceber, totalComissaoMes, mes, mesesDisponiveis } =
+  const { afiliada, pedidos, pagamentos, aReceber, totalComissao, de, ate, mesPagamento } =
     useLoaderData<typeof loader>();
   const fetcher = useFetcher<{ sucesso?: string; erro?: string }>();
+  const [searchParams] = useSearchParams();
   const [editando, setEditando] = useState(false);
 
   if (!afiliada) return <p>Afiliada não encontrada.</p>;
 
   const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
   const fmtDate = (d: string) => new Date(d).toLocaleDateString("pt-BR");
-  const ehMesAtual = mes === mesAtual();
+
+  const atalho = (label: string, deVal: string, ateVal: string) => (
+    <a
+      href={`?de=${deVal}&ate=${ateVal}`}
+      style={{
+        padding: "5px 10px", borderRadius: "6px", fontSize: "12px", fontWeight: "600",
+        textDecoration: "none", border: "1px solid #ddd",
+        background: de === deVal && ate === ateVal ? "#111" : "#fff",
+        color: de === deVal && ate === ateVal ? "#fff" : "#555",
+      }}
+    >
+      {label}
+    </a>
+  );
 
   return (
     <>
+      {/* Cabeçalho */}
       <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "24px", flexWrap: "wrap" }}>
         <Link to="/painel/afiliadas" style={{ color: "#00C9A7", textDecoration: "none", fontWeight: "600", fontSize: "14px" }}>← Afiliadas</Link>
         <span style={{ color: "#ccc" }}>/</span>
@@ -89,38 +147,34 @@ export default function PainelAfiliadaDetalhe() {
         {!afiliada.ativo && <span style={{ background: "#fee2e2", color: "#e53e3e", padding: "3px 10px", borderRadius: "4px", fontSize: "11px", fontWeight: "700" }}>INATIVA</span>}
       </div>
 
-      {/* Seletor de mês */}
-      <div style={{ marginBottom: "20px" }}>
-        <Form method="get" style={{ display: "inline-flex", alignItems: "center", gap: "8px" }}>
-          <label style={{ fontSize: "13px", fontWeight: "600", color: "#666" }}>Mês:</label>
-          <select
-            name="mes"
-            defaultValue={mes}
-            onChange={(e) => e.currentTarget.form?.requestSubmit()}
-            style={{ padding: "7px 12px", border: "1px solid #ddd", borderRadius: "8px", fontSize: "14px", fontWeight: "600", background: "#fff", cursor: "pointer" }}
-          >
-            {mesesDisponiveis.map((m) => (
-              <option key={m} value={m}>
-                {mesLabel(m)}{m === mesAtual() ? " (atual)" : ""}
-              </option>
-            ))}
-          </select>
+      {/* Filtro de período */}
+      <div style={{ background: "#fff", borderRadius: "12px", padding: "16px 20px", boxShadow: "0 1px 3px rgba(0,0,0,0.08)", marginBottom: "24px" }}>
+        <Form method="get" style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
+          <span style={{ fontSize: "13px", fontWeight: "600", color: "#666" }}>Período:</span>
+          <input type="date" name="de" defaultValue={de} style={dateInput} />
+          <span style={{ color: "#aaa", fontSize: "13px" }}>até</span>
+          <input type="date" name="ate" defaultValue={ate} style={dateInput} />
+          <button type="submit" style={{ padding: "7px 16px", background: "#111", color: "#fff", border: "none", borderRadius: "8px", fontWeight: "700", fontSize: "13px", cursor: "pointer" }}>
+            Filtrar
+          </button>
+          <div style={{ display: "flex", gap: "6px", marginLeft: "4px" }}>
+            {atalho("Este mês", primeiroDiaMes(mesAtual()), hojeStr())}
+            {atalho("Mês passado", primeiroDiaMes(mesAnterior()), ultimoDiaMes(mesAnterior()))}
+          </div>
         </Form>
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "280px 1fr", gap: "24px", alignItems: "start" }}>
         {/* Sidebar */}
         <div style={{ background: "#fff", borderRadius: "12px", padding: "24px", boxShadow: "0 1px 3px rgba(0,0,0,0.08)" }}>
-          <p style={{ margin: "0 0 4px", fontSize: "11px", fontWeight: "700", color: "#999", textTransform: "uppercase", letterSpacing: "0.5px" }}>
-            Comissão gerada
-          </p>
-          <p style={{ margin: "0 0 16px", fontSize: "28px", fontWeight: "800", color: "#111" }}>{fmt(totalComissaoMes)}</p>
+          <p style={{ margin: "0 0 4px", fontSize: "11px", fontWeight: "700", color: "#999", textTransform: "uppercase", letterSpacing: "0.5px" }}>Comissão gerada</p>
+          <p style={{ margin: "0 0 16px", fontSize: "28px", fontWeight: "800", color: "#111" }}>{fmt(totalComissao)}</p>
 
           <p style={{ margin: "0 0 4px", fontSize: "11px", fontWeight: "700", color: "#999", textTransform: "uppercase", letterSpacing: "0.5px" }}>A receber</p>
           <p style={{ margin: "0 0 16px", fontSize: "28px", fontWeight: "800", color: aReceber > 0 ? "#e53e3e" : "#38a169" }}>{fmt(aReceber)}</p>
 
           {afiliada.pix && (
-            <p style={{ margin: "0 0 20px", fontSize: "13px", color: "#666", background: "#f9f9f9", padding: "10px 12px", borderRadius: "8px" }}>
+            <p style={{ margin: "0 0 16px", fontSize: "13px", color: "#666", background: "#f9f9f9", padding: "10px 12px", borderRadius: "8px" }}>
               PIX: <strong>{afiliada.pix}</strong>
             </p>
           )}
@@ -128,10 +182,12 @@ export default function PainelAfiliadaDetalhe() {
           {aReceber > 0 && (
             <div style={{ borderTop: "1px solid #eee", paddingTop: "20px" }}>
               <p style={{ margin: "0 0 4px", fontWeight: "700", fontSize: "14px" }}>Registrar pagamento</p>
-              <p style={{ margin: "0 0 12px", fontSize: "12px", color: "#999", textTransform: "capitalize" }}>{mesLabel(mes)}</p>
+              <p style={{ margin: "0 0 12px", fontSize: "12px", color: "#999", textTransform: "capitalize" }}>
+                ref. {fmtMes(mesPagamento)}
+              </p>
               <fetcher.Form method="post">
                 <input type="hidden" name="intent" value="pagar" />
-                <input type="hidden" name="mes" value={mes} />
+                <input type="hidden" name="mes" value={mesPagamento} />
                 <input type="number" name="valor" defaultValue={aReceber} step="0.01" style={inputStyle} />
                 <input type="text" name="observacao" placeholder="Observação (opcional)" style={inputStyle} />
                 <button type="submit" style={{ width: "100%", padding: "12px", background: "#38a169", color: "#fff", border: "none", borderRadius: "8px", fontWeight: "700", cursor: "pointer", fontSize: "14px" }}>
@@ -175,13 +231,13 @@ export default function PainelAfiliadaDetalhe() {
           </div>
         </div>
 
-        {/* Tables */}
+        {/* Tabelas */}
         <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
           <div style={{ background: "#fff", borderRadius: "12px", boxShadow: "0 1px 3px rgba(0,0,0,0.08)", overflow: "hidden" }}>
             <div style={{ padding: "16px 24px", borderBottom: "1px solid #eee" }}>
               <h2 style={{ margin: 0, fontSize: "15px", fontWeight: "700" }}>
-                Pedidos — <span style={{ fontWeight: "400", color: "#888", textTransform: "capitalize" }}>{mesLabel(mes)}</span>
-                <span style={{ marginLeft: "8px", fontSize: "13px", color: "#aaa", fontWeight: "400" }}>({pedidosMes.length})</span>
+                Pedidos
+                <span style={{ marginLeft: "8px", fontSize: "13px", color: "#aaa", fontWeight: "400" }}>({pedidos.length})</span>
               </h2>
             </div>
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
@@ -189,8 +245,8 @@ export default function PainelAfiliadaDetalhe() {
                 {["Pedido", "Venda", "Comissão", "Data"].map(h => <th key={h} style={th}>{h}</th>)}
               </tr></thead>
               <tbody>
-                {pedidosMes.length === 0 && <tr><td colSpan={4} style={{ ...td, textAlign: "center", color: "#999" }}>Nenhum pedido neste mês</td></tr>}
-                {pedidosMes.map((p) => (
+                {pedidos.length === 0 && <tr><td colSpan={4} style={{ ...td, textAlign: "center", color: "#999" }}>Nenhum pedido neste período</td></tr>}
+                {pedidos.map((p) => (
                   <tr key={p.id} style={{ borderBottom: "1px solid #f5f5f5", opacity: p.cancelado ? 0.5 : 1 }}>
                     <td style={{ ...td, fontWeight: "600" }}>
                       #{p.shopify_order_id}
@@ -209,19 +265,18 @@ export default function PainelAfiliadaDetalhe() {
 
           <div style={{ background: "#fff", borderRadius: "12px", boxShadow: "0 1px 3px rgba(0,0,0,0.08)", overflow: "hidden" }}>
             <div style={{ padding: "16px 24px", borderBottom: "1px solid #eee" }}>
-              <h2 style={{ margin: 0, fontSize: "15px", fontWeight: "700" }}>
-                Pagamentos — <span style={{ fontWeight: "400", color: "#888", textTransform: "capitalize" }}>{mesLabel(mes)}</span>
-              </h2>
+              <h2 style={{ margin: 0, fontSize: "15px", fontWeight: "700" }}>Pagamentos registrados</h2>
             </div>
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead><tr style={{ background: "#f9f9f9" }}>
-                {["Data", "Valor", "Observação"].map(h => <th key={h} style={th}>{h}</th>)}
+                {["Data", "Mês ref.", "Valor", "Observação"].map(h => <th key={h} style={th}>{h}</th>)}
               </tr></thead>
               <tbody>
-                {pagamentosMes.length === 0 && <tr><td colSpan={3} style={{ ...td, textAlign: "center", color: "#999" }}>Nenhum pagamento neste mês</td></tr>}
-                {pagamentosMes.map((p) => (
+                {pagamentos.length === 0 && <tr><td colSpan={4} style={{ ...td, textAlign: "center", color: "#999" }}>Nenhum pagamento neste período</td></tr>}
+                {pagamentos.map((p) => (
                   <tr key={p.id} style={{ borderBottom: "1px solid #f5f5f5" }}>
                     <td style={{ ...td, color: "#666" }}>{fmtDate(p.pago_em)}</td>
+                    <td style={{ ...td, color: "#888", fontSize: "13px", textTransform: "capitalize" }}>{fmtMes(p.mes_referencia)}</td>
                     <td style={{ ...td, fontWeight: "700", color: "#38a169" }}>{fmt(p.valor)}</td>
                     <td style={{ ...td, color: "#888", fontSize: "13px" }}>{p.observacao || "—"}</td>
                   </tr>
