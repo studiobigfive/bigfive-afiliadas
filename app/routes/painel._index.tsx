@@ -70,7 +70,7 @@ export default function PainelIndex() {
                 <td style={{ ...td, color: "#666" }}>{fmt(a.totalVendas)}</td>
                 <td style={{ ...td, color: "#666" }}>{fmt(a.totalComissao)}</td>
                 <td style={{ ...td, fontWeight: "700", color: a.aReceber > 0 ? "#e53e3e" : "#38a169" }}>{fmt(a.aReceber)}</td>
-                <td style={td}><Link to={`/painel/afiliadas/${a.id}`} style={{ color: "#00C9A7", textDecoration: "none", fontWeight: "600", fontSize: "14px" }}>Ver →</Link></td>
+                <td style={td}><Link to={`/painel/afiliada/${a.id}`} style={{ color: "#00C9A7", textDecoration: "none", fontWeight: "600", fontSize: "14px" }}>Ver →</Link></td>
               </tr>
             ))}
           </tbody>

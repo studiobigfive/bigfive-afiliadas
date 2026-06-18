@@ -94,7 +94,7 @@ export default function PainelAfiliadas() {
               <span style={{ background: "#111", color: "#fff", padding: "2px 8px", borderRadius: "4px", fontSize: "11px", fontWeight: "700", letterSpacing: "1px" }}>{a.cupom}</span>
             </div>
             <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
-              <Link to={`/painel/afiliadas/${a.id}`} style={{ color: "#00C9A7", textDecoration: "none", fontWeight: "600", fontSize: "14px" }}>Ver</Link>
+              <Link to={`/painel/afiliada/${a.id}`} style={{ color: "#00C9A7", textDecoration: "none", fontWeight: "600", fontSize: "14px" }}>Ver</Link>
               <fetcher.Form method="post">
                 <input type="hidden" name="intent" value="toggle" />
                 <input type="hidden" name="id" value={a.id} />
