@@ -125,9 +125,10 @@ export default function PainelAfiliadaDetalhe() {
             </p>
           )}
 
-          {aReceber > 0 && ehMesAtual && (
+          {aReceber > 0 && (
             <div style={{ borderTop: "1px solid #eee", paddingTop: "20px" }}>
-              <p style={{ margin: "0 0 12px", fontWeight: "700", fontSize: "14px" }}>Registrar pagamento</p>
+              <p style={{ margin: "0 0 4px", fontWeight: "700", fontSize: "14px" }}>Registrar pagamento</p>
+              <p style={{ margin: "0 0 12px", fontSize: "12px", color: "#999", textTransform: "capitalize" }}>{mesLabel(mes)}</p>
               <fetcher.Form method="post">
                 <input type="hidden" name="intent" value="pagar" />
                 <input type="hidden" name="mes" value={mes} />
@@ -137,12 +138,6 @@ export default function PainelAfiliadaDetalhe() {
                   ✓ Marcar como pago
                 </button>
               </fetcher.Form>
-            </div>
-          )}
-
-          {aReceber > 0 && !ehMesAtual && (
-            <div style={{ background: "#fffbeb", border: "1px solid #fde68a", borderRadius: "8px", padding: "12px", fontSize: "13px", color: "#92400e" }}>
-              Para registrar pagamentos, selecione o mês atual.
             </div>
           )}
 
