@@ -31,6 +31,7 @@ export default function AfiliadaVerificar() {
             Enviamos um código de 6 dígitos para<br />
             <strong style={{ color: "#444" }}>{emailMascarado}</strong>
           </p>
+          <p style={{ margin: "10px 0 0", fontSize: "12px", color: "#bbb" }}>O código expira em 10 minutos</p>
         </div>
 
         <Form method="post">
