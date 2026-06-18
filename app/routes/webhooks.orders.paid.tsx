@@ -9,6 +9,13 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   if (topic !== "ORDERS_PAID") return new Response("ok", { status: 200 });
 
   const order = payload as any;
+
+  // Barreira dupla: só processa se pagamento realmente confirmado
+  // Protege contra Pix não pago, gateways bugados e pedidos cancelados
+  if (order.financial_status !== "paid" || order.cancel_reason != null) {
+    return new Response("ok", { status: 200 });
+  }
+
   const discountCodes: string[] = (order.discount_codes ?? []).map((d: any) =>
     d.code?.toUpperCase()
   );
