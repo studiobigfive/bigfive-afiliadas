@@ -8,7 +8,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   await requireAuth(request);
   const mes = mesAtual();
 
-  const { data: afiliadas } = await supabase.from("afiliadas").select("id, nome, cupom, pix").eq("ativo", true).order("nome");
+  const { data: afiliadas } = await supabase.from("afiliadas").select("id, nome, cupom, pix, instagram").eq("ativo", true).order("nome");
   const { data: pedidos } = await supabase.from("pedidos").select("afiliada_id, valor_total, comissao").eq("mes_referencia", mes);
   const { data: pagamentos } = await supabase.from("pagamentos").select("afiliada_id, valor").eq("mes_referencia", mes);
 
@@ -64,7 +64,10 @@ export default function PainelIndex() {
             )}
             {resumo.map((a) => (
               <tr key={a.id} style={{ borderBottom: "1px solid #f5f5f5" }}>
-                <td style={{ ...td, fontWeight: "600" }}>{a.nome}</td>
+                <td style={{ ...td, fontWeight: "600" }}>
+                  {a.nome}
+                  {a.instagram && <div style={{ fontSize: "12px", color: "#00C9A7", fontWeight: "500" }}>@{a.instagram}</div>}
+                </td>
                 <td style={td}><span style={{ background: "#111", color: "#fff", padding: "3px 8px", borderRadius: "4px", fontSize: "11px", fontWeight: "700", letterSpacing: "1px" }}>{a.cupom}</span></td>
                 <td style={{ ...td, color: "#666" }}>{a.totalPedidos}</td>
                 <td style={{ ...td, color: "#666" }}>{fmt(a.totalVendas)}</td>

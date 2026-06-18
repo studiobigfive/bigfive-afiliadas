@@ -97,7 +97,10 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
       nome: form.get("nome"),
       email: form.get("email"),
       pix: form.get("pix") || null,
-      atualizado_em: new Date().toISOString(), // Issue #21
+      instagram: (form.get("instagram") as string)?.replace(/^@/, "").trim() || null,
+      whatsapp: form.get("whatsapp") || null,
+      cpf: form.get("cpf") || null,
+      atualizado_em: new Date().toISOString(),
     }).eq("id", id);
     if (error) return { erro: error.message };
     return { sucesso: "editado" };
@@ -203,11 +206,29 @@ export default function PainelAfiliadaDetalhe() {
           <p style={{ margin: "0 0 4px", fontSize: "11px", fontWeight: "700", color: "#999", textTransform: "uppercase", letterSpacing: "0.5px" }}>A receber</p>
           <p style={{ margin: "0 0 16px", fontSize: "28px", fontWeight: "800", color: aReceber > 0 ? "#e53e3e" : "#38a169" }}>{fmt(aReceber)}</p>
 
-          {afiliada.pix && (
-            <p style={{ margin: "0 0 16px", fontSize: "13px", color: "#666", background: "#f9f9f9", padding: "10px 12px", borderRadius: "8px" }}>
-              PIX: <strong>{afiliada.pix}</strong>
+          {afiliada.instagram && (
+            <p style={{ margin: "0 0 8px", fontSize: "13px", color: "#00C9A7", fontWeight: "600" }}>
+              @{afiliada.instagram}
             </p>
           )}
+
+          <div style={{ display: "flex", flexDirection: "column", gap: "6px", marginBottom: "16px" }}>
+            {afiliada.whatsapp && (
+              <p style={{ margin: 0, fontSize: "13px", color: "#666" }}>
+                📱 {afiliada.whatsapp}
+              </p>
+            )}
+            {afiliada.cpf && (
+              <p style={{ margin: 0, fontSize: "13px", color: "#666" }}>
+                CPF: <strong>{afiliada.cpf}</strong>
+              </p>
+            )}
+            {afiliada.pix && (
+              <p style={{ margin: 0, fontSize: "13px", color: "#666" }}>
+                PIX: <strong>{afiliada.pix}</strong>
+              </p>
+            )}
+          </div>
 
           {aReceber > 0 && (
             <div style={{ borderTop: "1px solid #eee", paddingTop: "20px" }}>
@@ -268,6 +289,15 @@ export default function PainelAfiliadaDetalhe() {
                 <input name="nome" required defaultValue={afiliada.nome} style={inputStyle} />
                 <label style={{ display: "block", fontSize: "12px", fontWeight: "700", color: "#888", marginBottom: "4px" }}>E-mail</label>
                 <input name="email" type="email" required defaultValue={afiliada.email} style={inputStyle} />
+                <label style={{ display: "block", fontSize: "12px", fontWeight: "700", color: "#888", marginBottom: "4px" }}>Instagram</label>
+                <div style={{ position: "relative", marginBottom: "8px" }}>
+                  <span style={{ position: "absolute", left: "12px", top: "50%", transform: "translateY(-50%)", color: "#888", fontWeight: "700", fontSize: "14px" }}>@</span>
+                  <input name="instagram" defaultValue={afiliada.instagram ?? ""} placeholder="seuperfil" style={{ ...inputStyle, paddingLeft: "26px", marginBottom: 0 }} />
+                </div>
+                <label style={{ display: "block", fontSize: "12px", fontWeight: "700", color: "#888", marginBottom: "4px" }}>WhatsApp</label>
+                <input name="whatsapp" defaultValue={afiliada.whatsapp ?? ""} placeholder="(11) 99999-9999" style={inputStyle} />
+                <label style={{ display: "block", fontSize: "12px", fontWeight: "700", color: "#888", marginBottom: "4px" }}>CPF</label>
+                <input name="cpf" defaultValue={afiliada.cpf ?? ""} placeholder="000.000.000-00" style={inputStyle} />
                 <label style={{ display: "block", fontSize: "12px", fontWeight: "700", color: "#888", marginBottom: "4px" }}>Chave PIX</label>
                 <input name="pix" defaultValue={afiliada.pix ?? ""} placeholder="CPF, e-mail ou telefone" style={inputStyle} />
                 {fetcher.data?.erro && (

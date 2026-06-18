@@ -47,6 +47,9 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       email: form.get("email"),
       cupom,
       pix: form.get("pix"),
+      instagram: (form.get("instagram") as string)?.replace(/^@/, "").trim() || null,
+      whatsapp: form.get("whatsapp") || null,
+      cpf: form.get("cpf") || null,
     });
     if (error) return { erro: error.message };
     return { sucesso: true };
@@ -160,6 +163,24 @@ export default function PainelAfiliadas() {
             </div>
           )}
 
+          <div style={{ marginBottom: "14px" }}>
+            <label style={labelStyle}>Instagram</label>
+            <div style={{ position: "relative" }}>
+              <span style={{ position: "absolute", left: "12px", top: "50%", transform: "translateY(-50%)", color: "#888", fontWeight: "700", fontSize: "14px" }}>@</span>
+              <input name="instagram" style={{ ...inputStyle, paddingLeft: "26px" }} placeholder="seuperfil" />
+            </div>
+          </div>
+
+          <div style={{ marginBottom: "14px" }}>
+            <label style={labelStyle}>WhatsApp</label>
+            <input name="whatsapp" style={inputStyle} placeholder="(11) 99999-9999" />
+          </div>
+
+          <div style={{ marginBottom: "14px" }}>
+            <label style={labelStyle}>CPF</label>
+            <input name="cpf" style={inputStyle} placeholder="000.000.000-00" />
+          </div>
+
           <div style={{ marginBottom: "24px" }}>
             <label style={labelStyle}>Chave PIX</label>
             <input name="pix" style={inputStyle} placeholder="CPF, e-mail ou telefone" />
@@ -198,7 +219,8 @@ export default function PainelAfiliadas() {
           <div key={a.id} style={{ padding: "16px 24px", borderBottom: "1px solid #f5f5f5", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             <div>
               <div style={{ fontWeight: "600", marginBottom: "2px" }}>{a.nome}</div>
-              <div style={{ fontSize: "13px", color: "#888", marginBottom: "6px" }}>{a.email}</div>
+              <div style={{ fontSize: "13px", color: "#888", marginBottom: "4px" }}>{a.email}</div>
+              {a.instagram && <div style={{ fontSize: "12px", color: "#00C9A7", marginBottom: "6px" }}>@{a.instagram}</div>}
               <span style={{ background: "#111", color: "#fff", padding: "2px 8px", borderRadius: "4px", fontSize: "11px", fontWeight: "700", letterSpacing: "1px" }}>{a.cupom}</span>
               {!a.ativo &&<span style={{ marginLeft: "6px", background: "#fee2e2", color: "#e53e3e", padding: "2px 8px", borderRadius: "4px", fontSize: "11px", fontWeight: "700" }}>INATIVA</span>}
             </div>
