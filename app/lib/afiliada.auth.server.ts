@@ -2,6 +2,10 @@ import { createCookieSessionStorage, redirect } from "react-router";
 import { supabase } from "./supabase.server";
 import { enviarCodigoOTP } from "./email.server";
 
+if (!process.env.DASHBOARD_SECRET) {
+  console.warn("[afiliada.auth] AVISO: DASHBOARD_SECRET não definido — usando fallback inseguro.");
+}
+
 // Sessão autenticada (após verificar o código)
 const authStorage = createCookieSessionStorage({
   cookie: {
@@ -60,6 +64,13 @@ export async function iniciarLoginAction(request: Request) {
       return { erro: "Cupom ou e-mail incorretos" };
     }
 
+    // Issue #19: limpa OTPs expirados para não acumular lixo na tabela
+    await supabase
+      .from("afiliada_otp")
+      .delete()
+      .eq("afiliada_id", afiliada.id)
+      .lt("expira_em", new Date().toISOString());
+
     // Invalida códigos anteriores não usados
     await supabase
       .from("afiliada_otp")
@@ -117,18 +128,35 @@ export async function verificarCodigoAction(request: Request) {
   const codigo = (form.get("codigo") as string)?.trim();
 
   const agora = new Date().toISOString();
-  const { data: otp } = await supabase
+
+  // Issue #8: busca o OTP ativo mais recente SEM verificar o código
+  // (permite rastrear tentativas antes de rejeitar)
+  const { data: otpAtivo } = await supabase
     .from("afiliada_otp")
-    .select("id")
+    .select("id, codigo, tentativas")
     .eq("afiliada_id", afiliadaId)
-    .eq("codigo", codigo)
     .eq("usado", false)
     .gte("expira_em", agora)
+    .order("criado_em", { ascending: false })
+    .limit(1)
     .single();
 
-  if (!otp) return { erro: "Código incorreto ou expirado" };
+  if (!otpAtivo) return { erro: "Código expirado. Solicite um novo." };
 
-  await supabase.from("afiliada_otp").update({ usado: true }).eq("id", otp.id);
+  const tentativas = otpAtivo.tentativas ?? 0;
+  if (tentativas >= 5) {
+    return { erro: "Muitas tentativas incorretas. Solicite um novo código." };
+  }
+
+  if (otpAtivo.codigo !== codigo) {
+    const novasTentativas = tentativas + 1;
+    await supabase.from("afiliada_otp").update({ tentativas: novasTentativas }).eq("id", otpAtivo.id);
+    const restantes = 5 - novasTentativas;
+    if (restantes <= 0) return { erro: "Muitas tentativas incorretas. Solicite um novo código." };
+    return { erro: `Código incorreto. ${restantes} tentativa(s) restante(s).` };
+  }
+
+  await supabase.from("afiliada_otp").update({ usado: true }).eq("id", otpAtivo.id);
 
   const authSession = await authStorage.getSession();
   authSession.set("afiliada_id", afiliadaId);

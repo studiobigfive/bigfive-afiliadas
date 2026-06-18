@@ -29,24 +29,15 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
   const { id } = params;
   const url = new URL(request.url);
 
-  // Padrão: mês atual (dia 1 até hoje)
-  const de = url.searchParams.get("de") || primeiroDiaMes(mesAtual());
-  const ate = url.searchParams.get("ate") || hojeStr();
-  // Mês de referência para pagamento = mês do início do período
-  const mesPagamento = de.substring(0, 7);
+  // Padrão: mês atual (dia 1 até hoje) — issue #15: swap se de > ate
+  const deRaw = url.searchParams.get("de") || primeiroDiaMes(mesAtual());
+  const ateRaw = url.searchParams.get("ate") || hojeStr();
+  const de = deRaw <= ateRaw ? deRaw : ateRaw;
+  const ate = deRaw <= ateRaw ? ateRaw : deRaw;
 
   const { data: afiliada } = await supabase.from("afiliadas").select("*").eq("id", id).single();
 
-  // Pedidos dentro do intervalo
-  const { data: pedidos } = await supabase
-    .from("pedidos")
-    .select("*")
-    .eq("afiliada_id", id)
-    .gte("criado_em", `${de}T00:00:00`)
-    .lte("criado_em", `${ate}T23:59:59`)
-    .order("criado_em", { ascending: false });
-
-  // Pagamentos: todos os meses que caem dentro do range
+  // Issue #10: meses no range para seletor de referência de pagamento
   const mesesNoRange = new Set<string>();
   const deDate = new Date(de);
   const ateDate = new Date(ate);
@@ -55,11 +46,24 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
     mesesNoRange.add(`${cur.getFullYear()}-${String(cur.getMonth() + 1).padStart(2, "0")}`);
     cur.setMonth(cur.getMonth() + 1);
   }
+  const mesesArray = Array.from(mesesNoRange);
+  const mesPagamento = mesesArray[0] ?? de.substring(0, 7);
+
+  // Issue #11: limita a 100 pedidos por período
+  const { data: pedidos } = await supabase
+    .from("pedidos")
+    .select("*")
+    .eq("afiliada_id", id)
+    .gte("criado_em", `${de}T00:00:00`)
+    .lte("criado_em", `${ate}T23:59:59`)
+    .order("criado_em", { ascending: false })
+    .limit(100);
+
   const { data: pagamentos } = await supabase
     .from("pagamentos")
     .select("*")
     .eq("afiliada_id", id)
-    .in("mes_referencia", Array.from(mesesNoRange))
+    .in("mes_referencia", mesesArray)
     .order("pago_em", { ascending: false });
 
   const pedidosFiltrados = pedidos ?? [];
@@ -69,7 +73,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
   const totalPago = pagamentosFiltrados.reduce((s, p) => s + p.valor, 0);
   const aReceber = Math.max(0, totalComissao - totalPago);
 
-  return { afiliada, pedidos: pedidosFiltrados, pagamentos: pagamentosFiltrados, aReceber, totalComissao, de, ate, mesPagamento };
+  return { afiliada, pedidos: pedidosFiltrados, pagamentos: pagamentosFiltrados, aReceber, totalComissao, de, ate, mesPagamento, mesesArray, truncated: pedidosFiltrados.length === 100 };
 };
 
 export const action = async ({ request, params }: ActionFunctionArgs) => {
@@ -83,6 +87,7 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
       valor: parseFloat(form.get("valor") as string),
       mes_referencia: form.get("mes"),
       observacao: form.get("observacao") || null,
+      pago_em: new Date().toISOString(), // Issue #5
     });
     return { sucesso: "pago" };
   }
@@ -92,6 +97,7 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
       nome: form.get("nome"),
       email: form.get("email"),
       pix: form.get("pix") || null,
+      atualizado_em: new Date().toISOString(), // Issue #21
     }).eq("id", id);
     if (error) return { erro: error.message };
     return { sucesso: "editado" };
@@ -111,7 +117,7 @@ function fmtMes(yyyymm: string) {
 }
 
 export default function PainelAfiliadaDetalhe() {
-  const { afiliada, pedidos, pagamentos, aReceber, totalComissao, de, ate, mesPagamento } =
+  const { afiliada, pedidos, pagamentos, aReceber, totalComissao, de, ate, mesPagamento, mesesArray, truncated } =
     useLoaderData<typeof loader>();
   const fetcher = useFetcher<{ sucesso?: string; erro?: string }>();
   const [searchParams] = useSearchParams();
@@ -121,6 +127,30 @@ export default function PainelAfiliadaDetalhe() {
 
   const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
   const fmtDate = (d: string) => new Date(d).toLocaleDateString("pt-BR");
+
+  // Issue #4: detecta se o form de pagamento está em submissão
+  const isPaying = fetcher.state !== "idle" && fetcher.formData?.get("intent") === "pagar";
+
+  // Issue #12: exporta pedidos como CSV com BOM para Excel reconhecer UTF-8
+  const exportarCSV = () => {
+    const linhas = [
+      ["Pedido", "Status", "Venda", "Comissão", "Data"],
+      ...pedidos.map((p) => [
+        `#${p.shopify_order_id}`,
+        p.cancelado ? "Cancelado" : "Pago",
+        p.valor_total.toFixed(2).replace(".", ","),
+        p.comissao.toFixed(2).replace(".", ","),
+        fmtDate(p.criado_em),
+      ]),
+    ];
+    const csv = linhas.map((l) => l.map((c) => `"${c}"`).join(";")).join("\n");
+    const url = URL.createObjectURL(new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" }));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${afiliada.nome}_${de}_${ate}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   const atalho = (label: string, deVal: string, ateVal: string) => (
     <a
@@ -181,19 +211,43 @@ export default function PainelAfiliadaDetalhe() {
 
           {aReceber > 0 && (
             <div style={{ borderTop: "1px solid #eee", paddingTop: "20px" }}>
-              <p style={{ margin: "0 0 4px", fontWeight: "700", fontSize: "14px" }}>Registrar pagamento</p>
-              <p style={{ margin: "0 0 12px", fontSize: "12px", color: "#999", textTransform: "capitalize" }}>
-                ref. {fmtMes(mesPagamento)}
-              </p>
+              <p style={{ margin: "0 0 12px", fontWeight: "700", fontSize: "14px" }}>Registrar pagamento</p>
               <fetcher.Form method="post">
                 <input type="hidden" name="intent" value="pagar" />
-                <input type="hidden" name="mes" value={mesPagamento} />
+
+                {/* Issue #10: seletor de mês quando o range cobre mais de um mês */}
+                {mesesArray.length > 1 ? (
+                  <div style={{ marginBottom: "4px" }}>
+                    <label style={{ display: "block", fontSize: "12px", fontWeight: "700", color: "#888", marginBottom: "4px" }}>Mês de referência</label>
+                    <select name="mes" defaultValue={mesPagamento} style={{ ...inputStyle, cursor: "pointer" }}>
+                      {mesesArray.map((m) => (
+                        <option key={m} value={m} style={{ textTransform: "capitalize" }}>{fmtMes(m)}</option>
+                      ))}
+                    </select>
+                  </div>
+                ) : (
+                  <>
+                    <input type="hidden" name="mes" value={mesPagamento} />
+                    <p style={{ margin: "0 0 12px", fontSize: "12px", color: "#999", textTransform: "capitalize" }}>
+                      ref. {fmtMes(mesPagamento)}
+                    </p>
+                  </>
+                )}
+
                 <input type="number" name="valor" defaultValue={aReceber} step="0.01" style={inputStyle} />
                 <input type="text" name="observacao" placeholder="Observação (opcional)" style={inputStyle} />
-                <button type="submit" style={{ width: "100%", padding: "12px", background: "#38a169", color: "#fff", border: "none", borderRadius: "8px", fontWeight: "700", cursor: "pointer", fontSize: "14px" }}>
-                  ✓ Marcar como pago
+                {/* Issue #4: desabilita botão durante envio */}
+                <button
+                  type="submit"
+                  disabled={isPaying}
+                  style={{ width: "100%", padding: "12px", background: isPaying ? "#888" : "#38a169", color: "#fff", border: "none", borderRadius: "8px", fontWeight: "700", cursor: isPaying ? "not-allowed" : "pointer", fontSize: "14px" }}
+                >
+                  {isPaying ? "Registrando..." : "✓ Marcar como pago"}
                 </button>
               </fetcher.Form>
+              {fetcher.data?.sucesso === "pago" && (
+                <p style={{ color: "#38a169", fontSize: "12px", marginTop: "8px", fontWeight: "600" }}>✓ Pagamento registrado</p>
+              )}
             </div>
           )}
 
@@ -234,12 +288,24 @@ export default function PainelAfiliadaDetalhe() {
         {/* Tabelas */}
         <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
           <div style={{ background: "#fff", borderRadius: "12px", boxShadow: "0 1px 3px rgba(0,0,0,0.08)", overflow: "hidden" }}>
-            <div style={{ padding: "16px 24px", borderBottom: "1px solid #eee" }}>
+            <div style={{ padding: "16px 24px", borderBottom: "1px solid #eee", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
               <h2 style={{ margin: 0, fontSize: "15px", fontWeight: "700" }}>
                 Pedidos
-                <span style={{ marginLeft: "8px", fontSize: "13px", color: "#aaa", fontWeight: "400" }}>({pedidos.length})</span>
+                {/* Issue #11: indica quando resultado está truncado */}
+                <span style={{ marginLeft: "8px", fontSize: "13px", color: "#aaa", fontWeight: "400" }}>({pedidos.length}{truncated ? "+" : ""})</span>
               </h2>
+              {/* Issue #12: exporta CSV */}
+              {pedidos.length > 0 && (
+                <button type="button" onClick={exportarCSV} style={{ padding: "5px 12px", border: "1px solid #ddd", borderRadius: "6px", background: "#fff", fontSize: "12px", fontWeight: "600", color: "#555", cursor: "pointer" }}>
+                  ↓ Exportar CSV
+                </button>
+              )}
             </div>
+            {truncated && (
+              <div style={{ padding: "8px 24px", background: "#fffbeb", borderBottom: "1px solid #fef3c7", fontSize: "12px", color: "#92400e" }}>
+                Exibindo os 100 pedidos mais recentes. Ajuste o período para ver registros específicos.
+              </div>
+            )}
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead><tr style={{ background: "#f9f9f9" }}>
                 {["Pedido", "Venda", "Comissão", "Data"].map(h => <th key={h} style={th}>{h}</th>)}

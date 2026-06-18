@@ -26,8 +26,11 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const afiliadaId = await requireAfiliadaAuth(request);
   const url = new URL(request.url);
 
-  const de = url.searchParams.get("de") || primeiroDiaMes(mesAtual());
-  const ate = url.searchParams.get("ate") || hojeStr();
+  // Issue #15: swap se de > ate
+  const deRaw = url.searchParams.get("de") || primeiroDiaMes(mesAtual());
+  const ateRaw = url.searchParams.get("ate") || hojeStr();
+  const de = deRaw <= ateRaw ? deRaw : ateRaw;
+  const ate = deRaw <= ateRaw ? ateRaw : deRaw;
 
   const { data: afiliada } = await supabase
     .from("afiliadas")
@@ -35,13 +38,15 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     .eq("id", afiliadaId)
     .single();
 
+  // Issue #11: limita a 100 pedidos por período
   const { data: pedidos } = await supabase
     .from("pedidos")
     .select("shopify_order_id, mes_referencia, valor_total, comissao, criado_em, cancelado")
     .eq("afiliada_id", afiliadaId)
     .gte("criado_em", `${de}T00:00:00`)
     .lte("criado_em", `${ate}T23:59:59`)
-    .order("criado_em", { ascending: false });
+    .order("criado_em", { ascending: false })
+    .limit(100);
 
   // Pagamentos dos meses que caem no range
   const mesesNoRange = new Set<string>();
@@ -66,7 +71,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const totalPago = pagamentosFiltrados.reduce((s, p) => s + p.valor, 0);
   const aReceber = Math.max(0, totalComissao - totalPago);
 
-  return { afiliada, pedidos: pedidosFiltrados, pagamentos: pagamentosFiltrados, totalComissao, aReceber, de, ate };
+  return { afiliada, pedidos: pedidosFiltrados, pagamentos: pagamentosFiltrados, totalComissao, aReceber, de, ate, truncated: pedidosFiltrados.length === 100 };
 };
 
 const th: React.CSSProperties = { padding: "10px 16px", textAlign: "left", fontSize: "12px", fontWeight: "700", color: "#666", textTransform: "uppercase", letterSpacing: "0.5px" };
@@ -79,9 +84,30 @@ function fmtMes(yyyymm: string) {
 }
 
 export default function AfiliadaDashboard() {
-  const { afiliada, pedidos, pagamentos, totalComissao, aReceber, de, ate } = useLoaderData<typeof loader>();
+  const { afiliada, pedidos, pagamentos, totalComissao, aReceber, de, ate, truncated } = useLoaderData<typeof loader>();
   const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
   const fmtDate = (d: string) => new Date(d).toLocaleDateString("pt-BR");
+
+  // Issue #12: exporta pedidos como CSV
+  const exportarCSV = () => {
+    const linhas = [
+      ["Pedido", "Status", "Venda", "Comissão", "Data"],
+      ...pedidos.map((p) => [
+        `#${p.shopify_order_id}`,
+        p.cancelado ? "Cancelado" : "Pago",
+        p.valor_total.toFixed(2).replace(".", ","),
+        p.comissao.toFixed(2).replace(".", ","),
+        fmtDate(p.criado_em),
+      ]),
+    ];
+    const csv = linhas.map((l) => l.map((c) => `"${c}"`).join(";")).join("\n");
+    const url = URL.createObjectURL(new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" }));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `meus_pedidos_${de}_${ate}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   const atalho = (label: string, deVal: string, ateVal: string) => (
     <a
@@ -141,12 +167,22 @@ export default function AfiliadaDashboard() {
 
       {/* Pedidos */}
       <div style={{ background: "#fff", borderRadius: "12px", boxShadow: "0 1px 3px rgba(0,0,0,0.08)", overflow: "hidden", marginBottom: "24px" }}>
-        <div style={{ padding: "18px 24px", borderBottom: "1px solid #eee" }}>
+        <div style={{ padding: "18px 24px", borderBottom: "1px solid #eee", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <h2 style={{ margin: 0, fontSize: "15px", fontWeight: "700" }}>
             Pedidos
-            <span style={{ marginLeft: "8px", fontSize: "13px", color: "#aaa", fontWeight: "400" }}>({pedidos.length})</span>
+            <span style={{ marginLeft: "8px", fontSize: "13px", color: "#aaa", fontWeight: "400" }}>({pedidos.length}{truncated ? "+" : ""})</span>
           </h2>
+          {pedidos.length > 0 && (
+            <button type="button" onClick={exportarCSV} style={{ padding: "5px 12px", border: "1px solid #ddd", borderRadius: "6px", background: "#fff", fontSize: "12px", fontWeight: "600", color: "#555", cursor: "pointer" }}>
+              ↓ Exportar CSV
+            </button>
+          )}
         </div>
+        {truncated && (
+          <div style={{ padding: "8px 24px", background: "#fffbeb", borderBottom: "1px solid #fef3c7", fontSize: "12px", color: "#92400e" }}>
+            Exibindo os 100 pedidos mais recentes. Ajuste o período para ver registros específicos.
+          </div>
+        )}
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr style={{ background: "#f9f9f9", borderBottom: "1px solid #eee" }}>

@@ -1,6 +1,6 @@
 import { supabase } from "./supabase.server";
 
-const API_VERSION = "2025-01";
+const API_VERSION = "2026-07";
 
 async function getShopifyCredentials(): Promise<{ shop: string; accessToken: string }> {
   const { data } = await supabase

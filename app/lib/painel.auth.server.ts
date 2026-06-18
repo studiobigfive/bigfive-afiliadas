@@ -1,10 +1,14 @@
 import { createCookieSessionStorage, redirect } from "react-router";
 
+if (!process.env.DASHBOARD_SECRET) {
+  console.warn("[painel.auth] AVISO: DASHBOARD_SECRET não definido — usando fallback inseguro. Defina essa variável no Vercel.");
+}
+
 const { getSession, commitSession, destroySession } = createCookieSessionStorage({
   cookie: {
     name: "bf_session",
     httpOnly: true,
-    maxAge: 60 * 60 * 24 * 30,
+    maxAge: 60 * 60 * 8, // 8 horas
     path: "/",
     sameSite: "lax",
     secrets: [process.env.DASHBOARD_SECRET || "bf-secret-change-me"],

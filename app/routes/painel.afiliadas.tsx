@@ -3,7 +3,7 @@ import type { LoaderFunctionArgs, ActionFunctionArgs } from "react-router";
 import { useLoaderData, useFetcher, Link } from "react-router";
 import { requireAuth } from "../lib/painel.auth.server";
 import { supabase } from "../lib/supabase.server";
-import { criarCupomShopify } from "../lib/shopify-admin.server";
+import { criarCupomShopify, verificarCupomShopify } from "../lib/shopify-admin.server";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   await requireAuth(request);
@@ -29,6 +29,16 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         await criarCupomShopify(cupom, porcentagem);
       } catch (e: any) {
         return { erro: e.message };
+      }
+    }
+
+    // Issue #6/#18: valida que o cupom existente realmente existe na Shopify
+    if (tipoCupom === "existente") {
+      try {
+        const existe = await verificarCupomShopify(cupom);
+        if (!existe) return { erro: `Cupom "${cupom}" não encontrado na Shopify. Verifique o código exato.` };
+      } catch {
+        return { erro: "Não foi possível verificar o cupom na Shopify. Tente novamente." };
       }
     }
 

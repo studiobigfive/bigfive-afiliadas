@@ -2,7 +2,7 @@ import type { ActionFunctionArgs } from "react-router";
 import { authenticate } from "../shopify.server";
 import { supabase } from "../lib/supabase.server";
 import { mesAtual } from "../lib/comissao";
-import { enviarNotificacaoPedido } from "../lib/email.server";
+import { enviarNotificacaoPedido, enviarNotificacaoAdmin } from "../lib/email.server";
 
 const PORTAL_URL = process.env.APP_URL ? `${process.env.APP_URL}/afiliada` : "https://bigfive-afiliadas.vercel.app/afiliada";
 
@@ -25,10 +25,10 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
   if (discountCodes.length === 0) return new Response("ok", { status: 200 });
 
-  // Verifica se algum cupom pertence a uma afiliada
+  // Verifica se algum cupom pertence a uma afiliada ativa
   const { data: afiliada } = await supabase
     .from("afiliadas")
-    .select("id, nome, email")
+    .select("id, nome, email, cupom")
     .in("cupom", discountCodes)
     .eq("ativo", true)
     .single();
@@ -38,18 +38,29 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   const valorTotal = parseFloat(order.total_price ?? "0");
   const mes = mesAtual();
 
-  // Total acumulado da afiliada no mês (excluindo este pedido se já existir)
+  // Issue #2: verifica se este pedido já existe ANTES do upsert
+  // Protege contra retries do webhook reenviando email e notificação
+  const { data: pedidoExistente } = await supabase
+    .from("pedidos")
+    .select("id")
+    .eq("shopify_order_id", String(order.id))
+    .single();
+
+  const isPrimeiroPedido = !pedidoExistente;
+
+  // Issue #1: exclui pedidos cancelados do acumulado para cálculo de tier correto
   const { data: pedidosDoMes } = await supabase
     .from("pedidos")
     .select("valor_total")
     .eq("afiliada_id", afiliada.id)
     .eq("mes_referencia", mes)
+    .eq("cancelado", false)
     .neq("shopify_order_id", String(order.id));
 
   const totalAcumulado = (pedidosDoMes ?? []).reduce((s, p) => s + p.valor_total, 0);
   const novoTotal = totalAcumulado + valorTotal;
 
-  // Busca tiers globais e determina qual se aplica ao novo total
+  // Busca tiers globais e determina qual se aplica ao novo total acumulado
   const { data: tiers } = await supabase
     .from("tiers_comissao")
     .select("vendas_ate, percentual")
@@ -66,8 +77,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
   const comissao = Math.round(valorTotal * (tier.percentual / 100) * 100) / 100;
 
-  // Salva o pedido (ignora duplicata via upsert)
-  const { data: pedidoSalvo } = await supabase.from("pedidos").upsert(
+  // Salva o pedido (upsert protege contra duplicatas de webhook)
+  await supabase.from("pedidos").upsert(
     {
       shopify_order_id: String(order.id),
       afiliada_id: afiliada.id,
@@ -76,13 +87,23 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       mes_referencia: mes,
     },
     { onConflict: "shopify_order_id" }
-  ).select("id").single();
+  );
 
-  // Notifica a afiliada por email (sem aguardar, falha não bloqueia)
-  if (pedidoSalvo && afiliada.email) {
-    enviarNotificacaoPedido(afiliada.email, afiliada.nome, valorTotal, comissao, mes, PORTAL_URL).catch(
-      (e) => console.error("[webhook] Falha ao notificar afiliada:", e.message)
-    );
+  // Só notifica se for a primeira vez (não retry do webhook)
+  if (isPrimeiroPedido) {
+    if (afiliada.email) {
+      enviarNotificacaoPedido(afiliada.email, afiliada.nome, valorTotal, comissao, mes, PORTAL_URL).catch(
+        (e) => console.error("[webhook] Falha ao notificar afiliada:", e.message)
+      );
+    }
+
+    // Issue #13: notifica o admin sobre nova venda
+    const adminEmail = process.env.ADMIN_EMAIL;
+    if (adminEmail) {
+      enviarNotificacaoAdmin(adminEmail, afiliada.nome, afiliada.cupom ?? "", valorTotal, comissao).catch(
+        (e) => console.error("[webhook] Falha ao notificar admin:", e.message)
+      );
+    }
   }
 
   return new Response("ok", { status: 200 });

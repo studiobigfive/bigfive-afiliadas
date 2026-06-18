@@ -74,3 +74,54 @@ export async function enviarNotificacaoPedido(
     console.error("[email] Falha ao enviar notificação de pedido:", error.message);
   }
 }
+
+export async function enviarNotificacaoAdmin(
+  adminEmail: string,
+  nomeAfiliada: string,
+  cupom: string,
+  valorVenda: number,
+  comissao: number
+) {
+  const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+
+  const { error } = await resend.emails.send({
+    from: process.env.RESEND_FROM || "onboarding@resend.dev",
+    to: adminEmail,
+    subject: `[BigFive] Nova venda via cupom ${cupom}`,
+    html: wrapHtml(`
+      <div style="font-family:Inter,sans-serif;max-width:480px;margin:40px auto;padding:32px 24px;background:#fff;border-radius:16px;">
+        <div style="font-weight:800;font-size:18px;letter-spacing:3px;margin-bottom:24px;color:#111;">BIGFIVE — Admin</div>
+        <p style="font-size:15px;color:#333;margin:0 0 16px;">Nova venda registrada via cupom de afiliado:</p>
+        <table style="width:100%;border-collapse:collapse;font-size:14px;">
+          <tr><td style="padding:8px 0;color:#666;">Afiliada</td><td style="padding:8px 0;font-weight:700;color:#111;">${nomeAfiliada}</td></tr>
+          <tr><td style="padding:8px 0;color:#666;">Cupom</td><td style="padding:8px 0;font-weight:700;letter-spacing:1px;">${cupom}</td></tr>
+          <tr><td style="padding:8px 0;color:#666;">Valor da venda</td><td style="padding:8px 0;font-weight:700;color:#111;">${fmt(valorVenda)}</td></tr>
+          <tr><td style="padding:8px 0;color:#666;">Comissão</td><td style="padding:8px 0;font-weight:700;color:#e53e3e;">${fmt(comissao)}</td></tr>
+        </table>
+      </div>
+    `),
+  });
+  if (error) console.error("[email] Falha ao notificar admin:", error.message);
+}
+
+export async function enviarNotificacaoCancelamento(email: string, nome: string, comissao: number) {
+  const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+
+  const { error } = await resend.emails.send({
+    from: process.env.RESEND_FROM || "onboarding@resend.dev",
+    to: email,
+    subject: `Atualização sobre sua comissão BigFive`,
+    html: wrapHtml(`
+      <div style="font-family:Inter,sans-serif;max-width:480px;margin:40px auto;padding:40px 24px;background:#fff;border-radius:16px;">
+        <div style="font-weight:800;font-size:18px;letter-spacing:3px;margin-bottom:32px;color:#111;">BIGFIVE</div>
+        <p style="font-size:15px;color:#333;margin:0 0 8px;">Olá, <strong>${nome}</strong>.</p>
+        <p style="font-size:14px;color:#666;margin:0 0 24px;">
+          Um pedido registrado com seu cupom foi <strong>cancelado</strong>.
+          A comissão de <strong style="color:#e53e3e;">${fmt(comissao)}</strong> foi removida do seu saldo.
+        </p>
+        <p style="font-size:13px;color:#999;margin:0;">Se tiver dúvidas, entre em contato com a equipe BigFive Hype.</p>
+      </div>
+    `),
+  });
+  if (error) console.error("[email] Falha ao notificar cancelamento:", error.message);
+}
