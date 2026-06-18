@@ -1,5 +1,5 @@
 import type { LoaderFunctionArgs, ActionFunctionArgs } from "react-router";
-import { useLoaderData, useFetcher, Link } from "react-router";
+import { useLoaderData, useFetcher, Link, Form } from "react-router";
 import { requireAuth } from "../lib/painel.auth.server";
 import { supabase } from "../lib/supabase.server";
 import { mesAtual } from "../lib/comissao";
@@ -7,18 +7,26 @@ import { mesAtual } from "../lib/comissao";
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
   await requireAuth(request);
   const { id } = params;
+  const url = new URL(request.url);
+  const mes = url.searchParams.get("mes") || mesAtual();
+
   const { data: afiliada } = await supabase.from("afiliadas").select("*").eq("id", id).single();
   const { data: pedidos } = await supabase.from("pedidos").select("*").eq("afiliada_id", id).order("criado_em", { ascending: false });
   const { data: pagamentos } = await supabase.from("pagamentos").select("*").eq("afiliada_id", id).order("pago_em", { ascending: false });
 
-  const mes = mesAtual();
+  // Meses disponíveis baseado nos dados
+  const todosMeses = new Set<string>([mesAtual()]);
+  (pedidos ?? []).forEach((p) => todosMeses.add(p.mes_referencia));
+  (pagamentos ?? []).forEach((p) => todosMeses.add(p.mes_referencia));
+  const mesesDisponiveis = Array.from(todosMeses).sort().reverse();
+
   const pedidosMes = (pedidos ?? []).filter((p) => p.mes_referencia === mes);
   const pagamentosMes = (pagamentos ?? []).filter((p) => p.mes_referencia === mes);
   const totalComissaoMes = pedidosMes.reduce((s, p) => s + p.comissao, 0);
   const totalPagoMes = pagamentosMes.reduce((s, p) => s + p.valor, 0);
   const aReceber = Math.max(0, totalComissaoMes - totalPagoMes);
 
-  return { afiliada, pedidos: pedidos ?? [], pagamentos: pagamentos ?? [], aReceber, mes };
+  return { afiliada, pedidosMes, pagamentosMes, aReceber, totalComissaoMes, mes, mesesDisponiveis };
 };
 
 export const action = async ({ request, params }: ActionFunctionArgs) => {
@@ -41,13 +49,21 @@ const th: React.CSSProperties = { padding: "10px 16px", textAlign: "left", fontS
 const td: React.CSSProperties = { padding: "12px 16px" };
 const inputStyle: React.CSSProperties = { width: "100%", padding: "10px 12px", border: "1px solid #ddd", borderRadius: "8px", fontSize: "14px", boxSizing: "border-box", marginBottom: "8px" };
 
+function mesLabel(m: string) {
+  const [ano, num] = m.split("-");
+  return new Date(Number(ano), Number(num) - 1).toLocaleString("pt-BR", { month: "long", year: "numeric" });
+}
+
 export default function PainelAfiliadaDetalhe() {
-  const { afiliada, pedidos, pagamentos, aReceber, mes } = useLoaderData<typeof loader>();
+  const { afiliada, pedidosMes, pagamentosMes, aReceber, totalComissaoMes, mes, mesesDisponiveis } =
+    useLoaderData<typeof loader>();
   const fetcher = useFetcher();
 
   if (!afiliada) return <p>Afiliada não encontrada.</p>;
 
   const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+  const fmtDate = (d: string) => new Date(d).toLocaleDateString("pt-BR");
+  const ehMesAtual = mes === mesAtual();
 
   return (
     <>
@@ -59,21 +75,43 @@ export default function PainelAfiliadaDetalhe() {
         {!afiliada.ativo && <span style={{ background: "#fee2e2", color: "#e53e3e", padding: "3px 10px", borderRadius: "4px", fontSize: "11px", fontWeight: "700" }}>INATIVA</span>}
       </div>
 
+      {/* Seletor de mês */}
+      <div style={{ marginBottom: "20px" }}>
+        <Form method="get" style={{ display: "inline-flex", alignItems: "center", gap: "8px" }}>
+          <label style={{ fontSize: "13px", fontWeight: "600", color: "#666" }}>Mês:</label>
+          <select
+            name="mes"
+            defaultValue={mes}
+            onChange={(e) => e.currentTarget.form?.requestSubmit()}
+            style={{ padding: "7px 12px", border: "1px solid #ddd", borderRadius: "8px", fontSize: "14px", fontWeight: "600", background: "#fff", cursor: "pointer" }}
+          >
+            {mesesDisponiveis.map((m) => (
+              <option key={m} value={m}>
+                {mesLabel(m)}{m === mesAtual() ? " (atual)" : ""}
+              </option>
+            ))}
+          </select>
+        </Form>
+      </div>
+
       <div style={{ display: "grid", gridTemplateColumns: "280px 1fr", gap: "24px", alignItems: "start" }}>
         {/* Sidebar */}
         <div style={{ background: "#fff", borderRadius: "12px", padding: "24px", boxShadow: "0 1px 3px rgba(0,0,0,0.08)" }}>
-          <p style={{ margin: "0 0 4px", fontSize: "11px", fontWeight: "700", color: "#999", textTransform: "uppercase", letterSpacing: "0.5px" }}>A receber este mês</p>
-          <p style={{ margin: "0 0 16px", fontSize: "32px", fontWeight: "800", color: aReceber > 0 ? "#e53e3e" : "#38a169" }}>{fmt(aReceber)}</p>
-          <p style={{ margin: "0 0 12px", fontSize: "13px", color: "#666", background: "#f9f9f9", padding: "10px 12px", borderRadius: "8px" }}>
-            Comissão: <strong style={{ color: "#00C9A7" }}>{afiliada.percentual_comissao ?? 10}% por venda</strong>
+          <p style={{ margin: "0 0 4px", fontSize: "11px", fontWeight: "700", color: "#999", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+            Comissão gerada
           </p>
+          <p style={{ margin: "0 0 16px", fontSize: "28px", fontWeight: "800", color: "#111" }}>{fmt(totalComissaoMes)}</p>
+
+          <p style={{ margin: "0 0 4px", fontSize: "11px", fontWeight: "700", color: "#999", textTransform: "uppercase", letterSpacing: "0.5px" }}>A receber</p>
+          <p style={{ margin: "0 0 16px", fontSize: "28px", fontWeight: "800", color: aReceber > 0 ? "#e53e3e" : "#38a169" }}>{fmt(aReceber)}</p>
+
           {afiliada.pix && (
             <p style={{ margin: "0 0 20px", fontSize: "13px", color: "#666", background: "#f9f9f9", padding: "10px 12px", borderRadius: "8px" }}>
               PIX: <strong>{afiliada.pix}</strong>
             </p>
           )}
 
-          {aReceber > 0 && (
+          {aReceber > 0 && ehMesAtual && (
             <div style={{ borderTop: "1px solid #eee", paddingTop: "20px" }}>
               <p style={{ margin: "0 0 12px", fontWeight: "700", fontSize: "14px" }}>Registrar pagamento</p>
               <fetcher.Form method="post">
@@ -87,26 +125,35 @@ export default function PainelAfiliadaDetalhe() {
               </fetcher.Form>
             </div>
           )}
+
+          {aReceber > 0 && !ehMesAtual && (
+            <div style={{ background: "#fffbeb", border: "1px solid #fde68a", borderRadius: "8px", padding: "12px", fontSize: "13px", color: "#92400e" }}>
+              Para registrar pagamentos, selecione o mês atual.
+            </div>
+          )}
         </div>
 
         {/* Tables */}
         <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
           <div style={{ background: "#fff", borderRadius: "12px", boxShadow: "0 1px 3px rgba(0,0,0,0.08)", overflow: "hidden" }}>
             <div style={{ padding: "16px 24px", borderBottom: "1px solid #eee" }}>
-              <h2 style={{ margin: 0, fontSize: "15px", fontWeight: "700" }}>Pedidos com cupom ({pedidos.length})</h2>
+              <h2 style={{ margin: 0, fontSize: "15px", fontWeight: "700" }}>
+                Pedidos — <span style={{ fontWeight: "400", color: "#888", textTransform: "capitalize" }}>{mesLabel(mes)}</span>
+                <span style={{ marginLeft: "8px", fontSize: "13px", color: "#aaa", fontWeight: "400" }}>({pedidosMes.length})</span>
+              </h2>
             </div>
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead><tr style={{ background: "#f9f9f9" }}>
-                {["Pedido", "Mês", "Venda", "Comissão"].map(h => <th key={h} style={th}>{h}</th>)}
+                {["Pedido", "Venda", "Comissão", "Data"].map(h => <th key={h} style={th}>{h}</th>)}
               </tr></thead>
               <tbody>
-                {pedidos.length === 0 && <tr><td colSpan={4} style={{ ...td, textAlign: "center", color: "#999" }}>Nenhum pedido ainda</td></tr>}
-                {pedidos.map((p) => (
+                {pedidosMes.length === 0 && <tr><td colSpan={4} style={{ ...td, textAlign: "center", color: "#999" }}>Nenhum pedido neste mês</td></tr>}
+                {pedidosMes.map((p) => (
                   <tr key={p.id} style={{ borderBottom: "1px solid #f5f5f5" }}>
                     <td style={{ ...td, fontWeight: "600" }}>#{p.shopify_order_id}</td>
-                    <td style={{ ...td, color: "#666" }}>{p.mes_referencia}</td>
                     <td style={{ ...td, color: "#666" }}>{fmt(p.valor_total)}</td>
                     <td style={{ ...td, fontWeight: "700", color: "#38a169" }}>{fmt(p.comissao)}</td>
+                    <td style={{ ...td, color: "#888", fontSize: "13px" }}>{fmtDate(p.criado_em)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -115,18 +162,19 @@ export default function PainelAfiliadaDetalhe() {
 
           <div style={{ background: "#fff", borderRadius: "12px", boxShadow: "0 1px 3px rgba(0,0,0,0.08)", overflow: "hidden" }}>
             <div style={{ padding: "16px 24px", borderBottom: "1px solid #eee" }}>
-              <h2 style={{ margin: 0, fontSize: "15px", fontWeight: "700" }}>Histórico de pagamentos</h2>
+              <h2 style={{ margin: 0, fontSize: "15px", fontWeight: "700" }}>
+                Pagamentos — <span style={{ fontWeight: "400", color: "#888", textTransform: "capitalize" }}>{mesLabel(mes)}</span>
+              </h2>
             </div>
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead><tr style={{ background: "#f9f9f9" }}>
-                {["Data", "Mês", "Valor", "Observação"].map(h => <th key={h} style={th}>{h}</th>)}
+                {["Data", "Valor", "Observação"].map(h => <th key={h} style={th}>{h}</th>)}
               </tr></thead>
               <tbody>
-                {pagamentos.length === 0 && <tr><td colSpan={4} style={{ ...td, textAlign: "center", color: "#999" }}>Nenhum pagamento registrado</td></tr>}
-                {pagamentos.map((p) => (
+                {pagamentosMes.length === 0 && <tr><td colSpan={3} style={{ ...td, textAlign: "center", color: "#999" }}>Nenhum pagamento neste mês</td></tr>}
+                {pagamentosMes.map((p) => (
                   <tr key={p.id} style={{ borderBottom: "1px solid #f5f5f5" }}>
-                    <td style={{ ...td, color: "#666" }}>{new Date(p.pago_em).toLocaleDateString("pt-BR")}</td>
-                    <td style={{ ...td, color: "#666" }}>{p.mes_referencia}</td>
+                    <td style={{ ...td, color: "#666" }}>{fmtDate(p.pago_em)}</td>
                     <td style={{ ...td, fontWeight: "700", color: "#38a169" }}>{fmt(p.valor)}</td>
                     <td style={{ ...td, color: "#888", fontSize: "13px" }}>{p.observacao || "—"}</td>
                   </tr>
