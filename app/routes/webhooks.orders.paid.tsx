@@ -2,6 +2,9 @@ import type { ActionFunctionArgs } from "react-router";
 import { authenticate } from "../shopify.server";
 import { supabase } from "../lib/supabase.server";
 import { mesAtual } from "../lib/comissao";
+import { enviarNotificacaoPedido } from "../lib/email.server";
+
+const PORTAL_URL = process.env.APP_URL ? `${process.env.APP_URL}/afiliada` : "https://bigfive-afiliadas.vercel.app/afiliada";
 
 export const action = async ({ request }: ActionFunctionArgs) => {
   const { payload, topic } = await authenticate.webhook(request);
@@ -25,7 +28,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   // Verifica se algum cupom pertence a uma afiliada
   const { data: afiliada } = await supabase
     .from("afiliadas")
-    .select("id, percentual_comissao")
+    .select("id, nome, email")
     .in("cupom", discountCodes)
     .eq("ativo", true)
     .single();
@@ -63,8 +66,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
   const comissao = Math.round(valorTotal * (tier.percentual / 100) * 100) / 100;
 
-  // Salva o pedido (ignora duplicata)
-  await supabase.from("pedidos").upsert(
+  // Salva o pedido (ignora duplicata via upsert)
+  const { data: pedidoSalvo } = await supabase.from("pedidos").upsert(
     {
       shopify_order_id: String(order.id),
       afiliada_id: afiliada.id,
@@ -73,7 +76,14 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       mes_referencia: mes,
     },
     { onConflict: "shopify_order_id" }
-  );
+  ).select("id").single();
+
+  // Notifica a afiliada por email (sem aguardar, falha não bloqueia)
+  if (pedidoSalvo && afiliada.email) {
+    enviarNotificacaoPedido(afiliada.email, afiliada.nome, valorTotal, comissao, mes, PORTAL_URL).catch(
+      (e) => console.error("[webhook] Falha ao notificar afiliada:", e.message)
+    );
+  }
 
   return new Response("ok", { status: 200 });
 };
