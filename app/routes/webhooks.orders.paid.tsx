@@ -33,9 +33,35 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   if (!afiliada) return new Response("ok", { status: 200 });
 
   const valorTotal = parseFloat(order.total_price ?? "0");
-  const percentual = afiliada.percentual_comissao ?? 10;
-  const comissao = Math.round(valorTotal * (percentual / 100) * 100) / 100;
   const mes = mesAtual();
+
+  // Total acumulado da afiliada no mês (excluindo este pedido se já existir)
+  const { data: pedidosDoMes } = await supabase
+    .from("pedidos")
+    .select("valor_total")
+    .eq("afiliada_id", afiliada.id)
+    .eq("mes_referencia", mes)
+    .neq("shopify_order_id", String(order.id));
+
+  const totalAcumulado = (pedidosDoMes ?? []).reduce((s, p) => s + p.valor_total, 0);
+  const novoTotal = totalAcumulado + valorTotal;
+
+  // Busca tiers globais e determina qual se aplica ao novo total
+  const { data: tiers } = await supabase
+    .from("tiers_comissao")
+    .select("vendas_ate, percentual")
+    .order("vendas_ate", { ascending: true, nullsFirst: false });
+
+  const tiersOrdenados = [...(tiers ?? [])].sort((a, b) => {
+    if (a.vendas_ate == null) return 1;
+    if (b.vendas_ate == null) return -1;
+    return a.vendas_ate - b.vendas_ate;
+  });
+
+  const tier = tiersOrdenados.find(t => t.vendas_ate == null || novoTotal <= t.vendas_ate)
+    ?? { percentual: 10 };
+
+  const comissao = Math.round(valorTotal * (tier.percentual / 100) * 100) / 100;
 
   // Salva o pedido (ignora duplicata)
   await supabase.from("pedidos").upsert(

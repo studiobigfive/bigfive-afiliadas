@@ -33,6 +33,7 @@ export default function Painel() {
         <nav style={{ display: "flex", gap: "24px" }}>
           {link("/painel", "Dashboard")}
           {link("/painel/afiliadas", "Afiliadas")}
+          {link("/painel/configuracoes", "Configurações")}
         </nav>
       </header>
       <main style={{ maxWidth: "1200px", margin: "0 auto", padding: "32px 24px" }}>
