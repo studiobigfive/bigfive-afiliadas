@@ -40,46 +40,71 @@ function gerarCodigo(): string {
 }
 
 export async function iniciarLoginAction(request: Request) {
-  const form = await request.formData();
-  const cupom = (form.get("cupom") as string)?.toUpperCase().trim();
-  const email = (form.get("email") as string)?.toLowerCase().trim();
+  try {
+    const form = await request.formData();
+    const cupom = (form.get("cupom") as string)?.toUpperCase().trim();
+    const email = (form.get("email") as string)?.toLowerCase().trim();
 
-  const { data: afiliada } = await supabase
-    .from("afiliadas")
-    .select("id, nome, email")
-    .eq("cupom", cupom)
-    .eq("ativo", true)
-    .single();
+    if (!cupom || !email) return { erro: "Preencha cupom e e-mail" };
 
-  if (!afiliada || afiliada.email.toLowerCase() !== email) {
-    return { erro: "Cupom ou e-mail incorretos" };
+    const { data: afiliada, error: dbError } = await supabase
+      .from("afiliadas")
+      .select("id, nome, email")
+      .eq("cupom", cupom)
+      .eq("ativo", true)
+      .single();
+
+    if (dbError) console.error("Supabase afiliada query error:", dbError);
+
+    if (!afiliada || afiliada.email.toLowerCase() !== email) {
+      return { erro: "Cupom ou e-mail incorretos" };
+    }
+
+    // Invalida códigos anteriores não usados
+    await supabase
+      .from("afiliada_otp")
+      .update({ usado: true })
+      .eq("afiliada_id", afiliada.id)
+      .eq("usado", false);
+
+    const codigo = gerarCodigo();
+    const expiraEm = new Date(Date.now() + 10 * 60 * 1000).toISOString();
+
+    const { error: insertError } = await supabase.from("afiliada_otp").insert({
+      afiliada_id: afiliada.id,
+      codigo,
+      expira_em: expiraEm,
+    });
+
+    if (insertError) {
+      console.error("Supabase OTP insert error:", insertError);
+      return { erro: "Erro ao gerar código. Tente novamente." };
+    }
+
+    try {
+      await enviarCodigoOTP(afiliada.email, afiliada.nome, codigo);
+    } catch (emailErr: any) {
+      console.error("Resend email error:", emailErr?.message ?? emailErr);
+      // Em dev, loga o código no console como fallback
+      if (process.env.NODE_ENV !== "production") {
+        console.log(`[DEV] Código OTP para ${afiliada.email}: ${codigo}`);
+      } else {
+        return { erro: "Erro ao enviar e-mail. Verifique se o domínio está configurado no Resend." };
+      }
+    }
+
+    const pendingSession = await pendingStorage.getSession();
+    pendingSession.set("afiliada_id", afiliada.id);
+    pendingSession.set("email_mascarado", mascararEmail(afiliada.email));
+
+    throw redirect("/afiliada/verificar", {
+      headers: { "Set-Cookie": await pendingStorage.commitSession(pendingSession) },
+    });
+  } catch (e) {
+    if (e instanceof Response) throw e; // deixa o redirect passar
+    console.error("iniciarLoginAction error:", e);
+    return { erro: "Erro inesperado. Tente novamente." };
   }
-
-  // Invalida códigos anteriores não usados
-  await supabase
-    .from("afiliada_otp")
-    .update({ usado: true })
-    .eq("afiliada_id", afiliada.id)
-    .eq("usado", false);
-
-  const codigo = gerarCodigo();
-  const expiraEm = new Date(Date.now() + 10 * 60 * 1000).toISOString();
-
-  await supabase.from("afiliada_otp").insert({
-    afiliada_id: afiliada.id,
-    codigo,
-    expira_em: expiraEm,
-  });
-
-  await enviarCodigoOTP(afiliada.email, afiliada.nome, codigo);
-
-  const pendingSession = await pendingStorage.getSession();
-  pendingSession.set("afiliada_id", afiliada.id);
-  pendingSession.set("email_mascarado", mascararEmail(afiliada.email));
-
-  throw redirect("/afiliada/verificar", {
-    headers: { "Set-Cookie": await pendingStorage.commitSession(pendingSession) },
-  });
 }
 
 export async function verificarCodigoAction(request: Request) {
