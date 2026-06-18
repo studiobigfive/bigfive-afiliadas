@@ -1,8 +1,6 @@
 import type { LoaderFunctionArgs, ActionFunctionArgs } from "react-router";
 import { Outlet, Form } from "react-router";
-import { requireAfiliadaAuth } from "../lib/afiliada.auth.server";
-import { destroySession, getSession } from "../lib/afiliada.auth.server";
-import { redirect } from "react-router";
+import { requireAfiliadaAuth, logoutAfiliada } from "../lib/afiliada.auth.server";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   await requireAfiliadaAuth(request);
@@ -10,10 +8,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 };
 
 export const action = async ({ request }: ActionFunctionArgs) => {
-  const session = await getSession(request.headers.get("Cookie"));
-  throw redirect("/afiliada/login", {
-    headers: { "Set-Cookie": await destroySession(session) },
-  });
+  return logoutAfiliada(request);
 };
 
 export default function AfiliadaLayout() {
