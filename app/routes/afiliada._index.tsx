@@ -67,9 +67,9 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const pedidosFiltrados = pedidos ?? [];
   const pagamentosFiltrados = pagamentos ?? [];
 
-  const totalComissao = pedidosFiltrados.filter((p) => !p.cancelado).reduce((s, p) => s + p.comissao, 0);
-  const totalPago = pagamentosFiltrados.reduce((s, p) => s + p.valor, 0);
-  const aReceber = Math.max(0, totalComissao - totalPago);
+  const totalComissao = Math.round(pedidosFiltrados.filter((p) => !p.cancelado).reduce((s, p) => s + p.comissao, 0) * 100) / 100;
+  const totalPago = Math.round(pagamentosFiltrados.reduce((s, p) => s + p.valor, 0) * 100) / 100;
+  const aReceber = Math.max(0, Math.round((totalComissao - totalPago) * 100) / 100);
 
   return { afiliada, pedidos: pedidosFiltrados, pagamentos: pagamentosFiltrados, totalComissao, aReceber, de, ate, truncated: pedidosFiltrados.length === 100 };
 };
