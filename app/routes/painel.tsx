@@ -33,6 +33,7 @@ export default function Painel() {
         <nav style={{ display: "flex", gap: "24px" }}>
           {link("/painel", "Dashboard")}
           {link("/painel/afiliadas", "Participantes")}
+          {link("/painel/designers", "Designers")}
           {link("/painel/configuracoes", "Configurações")}
         </nav>
       </header>

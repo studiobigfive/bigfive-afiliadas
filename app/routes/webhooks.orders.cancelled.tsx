@@ -18,9 +18,15 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     .eq("shopify_order_id", shopifyOrderId)
     .single();
 
-  // Marca o pedido como cancelado (mantém histórico, zera comissão efetiva)
+  // Marca pedido de afiliada como cancelado
   await supabase
     .from("pedidos")
+    .update({ cancelado: true })
+    .eq("shopify_order_id", shopifyOrderId);
+
+  // Marca pedidos de designers como cancelados no mesmo pedido
+  await supabase
+    .from("pedidos_designer")
     .update({ cancelado: true })
     .eq("shopify_order_id", shopifyOrderId);
 

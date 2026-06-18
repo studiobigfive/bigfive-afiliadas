@@ -70,6 +70,21 @@ export async function criarCupomShopify(
   return { price_rule_id: price_rule.id };
 }
 
+export async function buscarProdutos(query: string): Promise<Array<{ id: string; title: string; image: string | null }>> {
+  const { shop, accessToken } = await getShopifyCredentials();
+  const res = await fetch(
+    `https://${shop}/admin/api/${API_VERSION}/products.json?title=${encodeURIComponent(query)}&limit=10&fields=id,title,image`,
+    { headers: { "X-Shopify-Access-Token": accessToken } }
+  );
+  if (!res.ok) return [];
+  const { products } = await res.json() as { products: any[] };
+  return (products ?? []).map((p: any) => ({
+    id: String(p.id),
+    title: p.title as string,
+    image: (p.image?.src ?? null) as string | null,
+  }));
+}
+
 export async function verificarCupomShopify(codigo: string): Promise<boolean> {
   const { shop, accessToken } = await getShopifyCredentials();
   const res = await fetch(
