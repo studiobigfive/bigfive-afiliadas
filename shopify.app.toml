@@ -1,7 +1,7 @@
 # Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
 
 client_id = "fa26159ee96e6d3380d56582bde336ae"
-application_url = "https://example.com"
+application_url = "https://bigfive-afiliadas.vercel.app"
 embedded = true
 name = "bigfive-afiliadas"
 
@@ -24,7 +24,7 @@ api_version = "2026-07"
   topics = [ "orders/paid" ]
 
 [auth]
-redirect_urls = [ "https://example.com/api/auth" ]
+redirect_urls = [ "https://bigfive-afiliadas.vercel.app/auth/callback" ]
 
 [build]
 include_config_on_deploy = true
