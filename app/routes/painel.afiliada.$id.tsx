@@ -1,3 +1,4 @@
+import { useState } from "react";
 import type { LoaderFunctionArgs, ActionFunctionArgs } from "react-router";
 import { useLoaderData, useFetcher, Link, Form } from "react-router";
 import { requireAuth } from "../lib/painel.auth.server";
@@ -41,8 +42,19 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
       mes_referencia: form.get("mes"),
       observacao: form.get("observacao") || null,
     });
-    return { sucesso: true };
+    return { sucesso: "pago" };
   }
+
+  if (form.get("intent") === "editar") {
+    const { error } = await supabase.from("afiliadas").update({
+      nome: form.get("nome"),
+      email: form.get("email"),
+      pix: form.get("pix") || null,
+    }).eq("id", id);
+    if (error) return { erro: error.message };
+    return { sucesso: "editado" };
+  }
+
   return null;
 };
 
@@ -58,7 +70,8 @@ function mesLabel(m: string) {
 export default function PainelAfiliadaDetalhe() {
   const { afiliada, pedidosMes, pagamentosMes, aReceber, totalComissaoMes, mes, mesesDisponiveis } =
     useLoaderData<typeof loader>();
-  const fetcher = useFetcher();
+  const fetcher = useFetcher<{ sucesso?: string; erro?: string }>();
+  const [editando, setEditando] = useState(false);
 
   if (!afiliada) return <p>Afiliada não encontrada.</p>;
 
@@ -132,6 +145,39 @@ export default function PainelAfiliadaDetalhe() {
               Para registrar pagamentos, selecione o mês atual.
             </div>
           )}
+
+          {/* Editar dados */}
+          <div style={{ borderTop: "1px solid #eee", paddingTop: "20px", marginTop: "20px" }}>
+            <button
+              type="button"
+              onClick={() => setEditando((v) => !v)}
+              style={{ background: "none", border: "none", padding: 0, cursor: "pointer", color: "#00C9A7", fontWeight: "600", fontSize: "13px" }}
+            >
+              {editando ? "✕ Cancelar" : "✎ Editar dados"}
+            </button>
+
+            {editando && (
+              <fetcher.Form method="post" style={{ marginTop: "14px" }} onSubmit={() => setEditando(false)}>
+                <input type="hidden" name="intent" value="editar" />
+                <label style={{ display: "block", fontSize: "12px", fontWeight: "700", color: "#888", marginBottom: "4px" }}>Nome</label>
+                <input name="nome" required defaultValue={afiliada.nome} style={inputStyle} />
+                <label style={{ display: "block", fontSize: "12px", fontWeight: "700", color: "#888", marginBottom: "4px" }}>E-mail</label>
+                <input name="email" type="email" required defaultValue={afiliada.email} style={inputStyle} />
+                <label style={{ display: "block", fontSize: "12px", fontWeight: "700", color: "#888", marginBottom: "4px" }}>Chave PIX</label>
+                <input name="pix" defaultValue={afiliada.pix ?? ""} placeholder="CPF, e-mail ou telefone" style={inputStyle} />
+                {fetcher.data?.erro && (
+                  <p style={{ color: "#e53e3e", fontSize: "12px", margin: "4px 0" }}>{fetcher.data.erro}</p>
+                )}
+                <button type="submit" style={{ width: "100%", padding: "10px", background: "#111", color: "#fff", border: "none", borderRadius: "8px", fontWeight: "700", cursor: "pointer", fontSize: "13px" }}>
+                  Salvar alterações
+                </button>
+              </fetcher.Form>
+            )}
+
+            {fetcher.data?.sucesso === "editado" && !editando && (
+              <p style={{ color: "#38a169", fontSize: "12px", marginTop: "8px", fontWeight: "600" }}>✓ Dados atualizados</p>
+            )}
+          </div>
         </div>
 
         {/* Tables */}
