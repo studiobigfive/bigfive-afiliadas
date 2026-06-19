@@ -510,36 +510,42 @@ export default function PainelDesignerDetalhe() {
                   Nenhum produto encontrado para "{query}"
                 </p>
               )}
-              {(buscaFetcher.data?.produtos ?? []).length > 0 && (
-                <div style={{ marginTop: "10px", display: "flex", flexDirection: "column", gap: "6px" }}>
-                  {(buscaFetcher.data!.produtos).map(produto => {
-                    const jaVinculado = produtosVinculadosSet.has(produto.id);
-                    return (
+              {(() => {
+                const resultados = buscaFetcher.data?.produtos ?? [];
+                if (resultados.length === 0) return null;
+                // Esconde da cascata os que já foram vinculados (somem ao clicar em Vincular)
+                const naoVinculados = resultados.filter(p => !produtosVinculadosSet.has(p.id));
+                if (naoVinculados.length === 0) {
+                  return (
+                    <p style={{ margin: "10px 0 0", fontSize: "13px", color: "#38a169", fontWeight: "600" }}>
+                      ✓ Todos os produtos dessa busca já estão vinculados
+                    </p>
+                  );
+                }
+                return (
+                  <div style={{ marginTop: "10px", display: "flex", flexDirection: "column", gap: "6px" }}>
+                    {naoVinculados.map(produto => (
                       <div key={produto.id} style={{ display: "flex", alignItems: "center", gap: "10px", padding: "10px 14px", background: "#fff", borderRadius: "8px", border: "1px solid #eee" }}>
                         {produto.image && (
                           <img src={produto.image} alt="" width={40} height={40} style={{ objectFit: "cover", borderRadius: "6px", flexShrink: 0 }} />
                         )}
                         <span style={{ flex: 1, fontSize: "14px", fontWeight: "500" }}>{produto.title}</span>
-                        {jaVinculado ? (
-                          <span style={{ fontSize: "12px", color: "#38a169", fontWeight: "700", flexShrink: 0 }}>✓ Vinculado</span>
-                        ) : (
-                          <fetcher.Form method="post" style={{ flexShrink: 0 }}>
-                            <input type="hidden" name="intent" value="add_produto" />
-                            <input type="hidden" name="shopify_product_id" value={produto.id} />
-                            <input type="hidden" name="nome_produto" value={produto.title} />
-                            <button
-                              type="submit"
-                              style={{ padding: "5px 14px", background: "#00C9A7", color: "#fff", border: "none", borderRadius: "6px", fontWeight: "700", fontSize: "12px", cursor: "pointer" }}
-                            >
-                              Vincular
-                            </button>
-                          </fetcher.Form>
-                        )}
+                        <fetcher.Form method="post" style={{ flexShrink: 0 }}>
+                          <input type="hidden" name="intent" value="add_produto" />
+                          <input type="hidden" name="shopify_product_id" value={produto.id} />
+                          <input type="hidden" name="nome_produto" value={produto.title} />
+                          <button
+                            type="submit"
+                            style={{ padding: "5px 14px", background: "#00C9A7", color: "#fff", border: "none", borderRadius: "6px", fontWeight: "700", fontSize: "12px", cursor: "pointer" }}
+                          >
+                            Vincular
+                          </button>
+                        </fetcher.Form>
                       </div>
-                    );
-                  })}
-                </div>
-              )}
+                    ))}
+                  </div>
+                );
+              })()}
 
               {fetcher.data?.erro_produto && (
                 <p style={{ margin: "8px 0 0", fontSize: "12px", color: "#e53e3e" }}>{fetcher.data.erro_produto}</p>
