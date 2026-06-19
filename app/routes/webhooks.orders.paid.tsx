@@ -40,7 +40,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       // Issue #2: verifica se já existe ANTES do upsert para não reenviar notificações
       const { data: pedidoExistente } = await supabase
         .from("pedidos")
-        .select("id")
+        .select("id, valor_reembolsado")
         .eq("shopify_order_id", shopifyOrderId)
         .single();
 
@@ -72,10 +72,15 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       const tier = tiersOrdenados.find(t => t.vendas_ate == null || novoTotal <= t.vendas_ate)
         ?? { percentual: 10 };
 
-      const comissao = Math.round(valorTotal * (tier.percentual / 100) * 100) / 100;
+      const comissaoBase = Math.round(valorTotal * (tier.percentual / 100) * 100) / 100;
+      // Preserva qualquer reembolso já registrado (caso o webhook reentregue após um refund)
+      const reembolsado = pedidoExistente?.valor_reembolsado ?? 0;
+      const comissao = valorTotal > 0
+        ? Math.max(0, Math.round(comissaoBase * (1 - Math.min(1, reembolsado / valorTotal)) * 100) / 100)
+        : comissaoBase;
 
       await supabase.from("pedidos").upsert(
-        { shopify_order_id: shopifyOrderId, afiliada_id: afiliada.id, valor_total: valorTotal, comissao, mes_referencia: mes },
+        { shopify_order_id: shopifyOrderId, afiliada_id: afiliada.id, valor_total: valorTotal, comissao, comissao_base: comissaoBase, mes_referencia: mes },
         { onConflict: "shopify_order_id" }
       );
 
@@ -135,6 +140,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           nome_produto: v.nome_produto || li.title || li.name || "",
           valor_item: valorItem,
           comissao: comissaoDesigner,
+          comissao_base: comissaoDesigner,
           mes_referencia: mes,
         },
         { onConflict: "shopify_order_id,designer_id,shopify_product_id" }

@@ -1,6 +1,7 @@
 import { supabase } from "./supabase.server";
 
-const API_VERSION = "2026-07";
+// Alinhado com a versão estável que o app usa (ApiVersion.October25 em shopify.server.ts).
+const API_VERSION = "2025-10";
 
 async function getShopifyCredentials(): Promise<{ shop: string; accessToken: string }> {
   const { data } = await supabase
@@ -72,16 +73,54 @@ export async function criarCupomShopify(
 
 export async function buscarProdutos(query: string): Promise<Array<{ id: string; title: string; image: string | null }>> {
   const { shop, accessToken } = await getShopifyCredentials();
-  const res = await fetch(
-    `https://${shop}/admin/api/${API_VERSION}/products.json?title=${encodeURIComponent(query)}&limit=10&fields=id,title,image`,
-    { headers: { "X-Shopify-Access-Token": accessToken } }
-  );
-  if (!res.ok) return [];
-  const { products } = await res.json() as { products: any[] };
-  return (products ?? []).map((p: any) => ({
-    id: String(p.id),
-    title: p.title as string,
-    image: (p.image?.src ?? null) as string | null,
+
+  // Busca parcial: cada palavra vira title:*palavra* (casa "Futura MILF" mesmo sem título exato).
+  const termos = query
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((t) => `title:*${t.replace(/[\\"]/g, "")}*`)
+    .join(" AND ");
+
+  const gql = `
+    query buscarProdutos($q: String!) {
+      products(first: 10, query: $q) {
+        edges {
+          node {
+            id
+            title
+            featuredImage { url }
+          }
+        }
+      }
+    }`;
+
+  const res = await fetch(`https://${shop}/admin/api/${API_VERSION}/graphql.json`, {
+    method: "POST",
+    headers: {
+      "X-Shopify-Access-Token": accessToken,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ query: gql, variables: { q: termos } }),
+  });
+
+  if (!res.ok) {
+    console.error(`[buscarProdutos] HTTP ${res.status}: ${await res.text().catch(() => "")}`);
+    return [];
+  }
+
+  const json = (await res.json()) as any;
+  if (json.errors) {
+    console.error("[buscarProdutos] GraphQL errors:", JSON.stringify(json.errors));
+    return [];
+  }
+
+  const edges = json.data?.products?.edges ?? [];
+  return edges.map((e: any) => ({
+    // ID numérico (gid://shopify/Product/123 → "123") para casar com product_id dos webhooks
+    id: String(e.node.id).split("/").pop() as string,
+    title: e.node.title as string,
+    image: (e.node.featuredImage?.url ?? null) as string | null,
   }));
 }
 

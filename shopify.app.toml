@@ -6,10 +6,10 @@ embedded = true
 name = "bigfive-afiliadas"
 
 [access_scopes]
-scopes = "read_orders,read_price_rules,read_discounts,write_price_rules,write_discounts"
+scopes = "read_orders,read_products,read_price_rules,read_discounts,write_price_rules,write_discounts"
 
 [webhooks]
-api_version = "2026-07"
+api_version = "2025-10"
 
   [[webhooks.subscriptions]]
   uri = "/webhooks/app/uninstalled"
