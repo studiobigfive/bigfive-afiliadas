@@ -219,7 +219,7 @@ export default function PainelDesignerDetalhe() {
     erro_produto?: string;
     erro_editar?: string;
   }>();
-  const buscaFetcher = useFetcher<{ produtos: Array<{ id: string; title: string; image: string | null }> }>();
+  const buscaFetcher = useFetcher<{ produtos: Array<{ id: string; title: string; image: string | null }>; erro?: string | null }>();
   const [confirmado, setConfirmado] = useState(false);
   const [editando, setEditando] = useState(false);
   const [query, setQuery] = useState("");
@@ -497,8 +497,15 @@ export default function PainelDesignerDetalhe() {
                 )}
               </div>
 
+              {/* Erro da busca (permissão, versão da API, loja não conectada, etc.) */}
+              {buscaFetcher.data?.erro && (
+                <div style={{ margin: "10px 0 0", padding: "10px 12px", background: "#fee2e2", color: "#e53e3e", borderRadius: "8px", fontSize: "13px" }}>
+                  ⚠️ {buscaFetcher.data.erro}
+                </div>
+              )}
+
               {/* Resultados */}
-              {query.trim().length >= 2 && buscaFetcher.state === "idle" && (buscaFetcher.data?.produtos ?? []).length === 0 && (
+              {query.trim().length >= 2 && buscaFetcher.state === "idle" && !buscaFetcher.data?.erro && (buscaFetcher.data?.produtos ?? []).length === 0 && (
                 <p style={{ margin: "10px 0 0", fontSize: "13px", color: "#999" }}>
                   Nenhum produto encontrado para "{query}"
                 </p>

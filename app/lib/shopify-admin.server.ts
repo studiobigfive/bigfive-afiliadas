@@ -105,14 +105,22 @@ export async function buscarProdutos(query: string): Promise<Array<{ id: string;
   });
 
   if (!res.ok) {
-    console.error(`[buscarProdutos] HTTP ${res.status}: ${await res.text().catch(() => "")}`);
-    return [];
+    const corpo = await res.text().catch(() => "");
+    console.error(`[buscarProdutos] HTTP ${res.status}: ${corpo}`);
+    if (res.status === 401 || res.status === 403) {
+      throw new Error("Sem permissão para ver produtos (a loja precisa aprovar o acesso a produtos).");
+    }
+    if (res.status === 404) {
+      throw new Error(`Endpoint não encontrado (versão da API ${API_VERSION}).`);
+    }
+    throw new Error(`Erro da Shopify: HTTP ${res.status}`);
   }
 
   const json = (await res.json()) as any;
   if (json.errors) {
     console.error("[buscarProdutos] GraphQL errors:", JSON.stringify(json.errors));
-    return [];
+    const msg = json.errors?.[0]?.message ?? "erro desconhecido";
+    throw new Error(`Shopify recusou a busca: ${msg}`);
   }
 
   const edges = json.data?.products?.edges ?? [];
