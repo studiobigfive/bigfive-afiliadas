@@ -523,7 +523,7 @@ export default function PainelDesignerDetalhe() {
                   );
                 }
                 return (
-                  <div style={{ marginTop: "10px", display: "flex", flexDirection: "column", gap: "6px" }}>
+                  <div style={{ marginTop: "10px", display: "flex", flexDirection: "column", gap: "6px", maxHeight: "260px", overflowY: "auto", borderRadius: "8px" }}>
                     {naoVinculados.map(produto => (
                       <div key={produto.id} style={{ display: "flex", alignItems: "center", gap: "10px", padding: "10px 14px", background: "#fff", borderRadius: "8px", border: "1px solid #eee" }}>
                         {produto.image && (
