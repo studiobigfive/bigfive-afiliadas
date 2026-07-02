@@ -112,10 +112,13 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       .select("designer_id, shopify_product_id, nome_produto, designers(id, nome, percentual, cupom, ativo)")
       .in("shopify_product_id", productIds);
 
-    // Mapeia product_id → line_item para acesso rápido
-    const liPorProduto = new Map<string, any>();
+    // Mapeia product_id → TODAS as linhas daquele produto (podem ser várias: tamanhos/cores diferentes)
+    const liPorProduto = new Map<string, any[]>();
     for (const li of lineItems) {
-      if (li.product_id) liPorProduto.set(String(li.product_id), li);
+      if (!li.product_id) continue;
+      const key = String(li.product_id);
+      if (!liPorProduto.has(key)) liPorProduto.set(key, []);
+      liPorProduto.get(key)!.push(li);
     }
 
     for (const v of vinculados ?? []) {
@@ -126,10 +129,13 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       // a comissão de cupom (afiliadas) já cobre — não duplica com design
       if (d.cupom && discountCodes.includes(String(d.cupom).toUpperCase())) continue;
 
-      const li = liPorProduto.get(v.shopify_product_id);
-      if (!li) continue;
+      const itens = liPorProduto.get(v.shopify_product_id);
+      if (!itens || itens.length === 0) continue;
 
-      const valorItem = Math.round(parseFloat(li.price) * (li.quantity ?? 1) * 100) / 100;
+      // Soma todas as linhas do mesmo produto (ex: cliente levou P e M da mesma estampa)
+      const valorItem = Math.round(
+        itens.reduce((s, li) => s + parseFloat(li.price) * (li.quantity ?? 1), 0) * 100
+      ) / 100;
       const comissaoDesigner = Math.round(valorItem * (d.percentual / 100) * 100) / 100;
 
       await supabase.from("pedidos_designer").upsert(
@@ -137,7 +143,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
           shopify_order_id: shopifyOrderId,
           designer_id: v.designer_id,
           shopify_product_id: v.shopify_product_id,
-          nome_produto: v.nome_produto || li.title || li.name || "",
+          nome_produto: v.nome_produto || itens[0].title || itens[0].name || "",
           valor_item: valorItem,
           comissao: comissaoDesigner,
           comissao_base: comissaoDesigner,

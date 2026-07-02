@@ -133,7 +133,7 @@ export default function PainelDesigners() {
             <input
               name="cupom"
               style={{ ...inputStyle, textTransform: "uppercase", letterSpacing: "1px", fontWeight: "700" }}
-              placeholder="Ex: TRANSBORDADOS"
+              placeholder="SEUCUPOM"
             />
             <span style={{ fontSize: "11px", color: "#aaa", marginTop: "4px", display: "block" }}>
               Se o cupom for usado, tem prioridade — design não é comissionado nesse pedido

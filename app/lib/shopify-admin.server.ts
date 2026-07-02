@@ -30,6 +30,15 @@ export async function criarCupomShopify(
     "Content-Type": "application/json",
   };
 
+  // Se houver uma coleção "sem produtos de designer" configurada, o cupom só vale nela —
+  // evita pagar comissão de afiliada E de designer no mesmo item.
+  const { data: config } = await supabase
+    .from("configuracoes_gerais")
+    .select("colecao_sem_design_id")
+    .eq("id", 1)
+    .single();
+  const colecaoId = config?.colecao_sem_design_id?.trim() || null;
+
   // 1. Cria a price rule
   const prRes = await fetch(`${base}/price_rules.json`, {
     method: "POST",
@@ -38,7 +47,9 @@ export async function criarCupomShopify(
       price_rule: {
         title: codigo,
         target_type: "line_item",
-        target_selection: "all",
+        ...(colecaoId
+          ? { target_selection: "entitled", entitled_collection_ids: [Number(colecaoId)] }
+          : { target_selection: "all" }),
         allocation_method: "across",
         value_type: "percentage",
         value: `-${porcentagem}.0`,

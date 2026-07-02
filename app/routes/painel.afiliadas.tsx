@@ -124,7 +124,7 @@ export default function PainelAfiliadas() {
               name="cupom"
               required
               style={{ ...inputStyle, textTransform: "uppercase", letterSpacing: "1px", fontWeight: "700" }}
-              placeholder={tipoCupom === "novo" ? "Ex: MARIA15" : "Digite o código exato"}
+              placeholder={tipoCupom === "novo" ? "SEUCUPOM10" : "Digite o código exato"}
             />
 
             {tipoCupom === "existente" && (

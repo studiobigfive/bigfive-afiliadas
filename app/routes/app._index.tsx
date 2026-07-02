@@ -9,23 +9,39 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   await authenticate.admin(request);
   const mes = mesAtual();
 
-  const { data: afiliadas } = await supabase.from("afiliadas").select("id").eq("ativo", true);
-  const { data: pedidos } = await supabase.from("pedidos").select("comissao").eq("mes_referencia", mes);
-  const { data: pagamentos } = await supabase.from("pagamentos").select("valor").eq("mes_referencia", mes);
+  const [
+    { data: afiliadas },
+    { data: designers },
+    { data: pedidos },
+    { data: pedidosDesigner },
+    { data: pagamentos },
+    { data: pagamentosDesigner },
+  ] = await Promise.all([
+    supabase.from("afiliadas").select("id").eq("ativo", true),
+    supabase.from("designers").select("id").eq("ativo", true),
+    supabase.from("pedidos").select("comissao").eq("mes_referencia", mes).eq("cancelado", false),
+    supabase.from("pedidos_designer").select("comissao").eq("mes_referencia", mes).eq("cancelado", false),
+    supabase.from("pagamentos").select("valor").eq("mes_referencia", mes),
+    supabase.from("pagamentos_designer").select("valor").eq("mes_referencia", mes),
+  ]);
 
-  const totalAfiliadas = afiliadas?.length ?? 0;
-  const totalComissao = (pedidos ?? []).reduce((s, p) => s + p.comissao, 0);
-  const totalPago = (pagamentos ?? []).reduce((s, p) => s + p.valor, 0);
+  const totalParticipantes = (afiliadas?.length ?? 0) + (designers?.length ?? 0);
+  const totalComissao =
+    (pedidos ?? []).reduce((s, p) => s + p.comissao, 0) +
+    (pedidosDesigner ?? []).reduce((s, p) => s + p.comissao, 0);
+  const totalPago =
+    (pagamentos ?? []).reduce((s, p) => s + p.valor, 0) +
+    (pagamentosDesigner ?? []).reduce((s, p) => s + p.valor, 0);
   const totalAReceber = Math.max(0, totalComissao - totalPago);
 
-  return { totalAfiliadas, totalComissao, totalAReceber, mes };
+  return { totalParticipantes, totalComissao, totalAReceber, mes };
 };
 
 const PAINEL_URL = "https://bigfive-afiliadas.vercel.app/painel";
 const PORTAL_URL = "https://bigfive-afiliadas.vercel.app/afiliada/login";
 
 export default function Dashboard() {
-  const { totalAfiliadas, totalComissao, totalAReceber, mes } = useLoaderData<typeof loader>();
+  const { totalParticipantes, totalComissao, totalAReceber, mes } = useLoaderData<typeof loader>();
   const [ano, mesNum] = mes.split("-");
   const mesLabel = new Date(Number(ano), Number(mesNum) - 1).toLocaleString("pt-BR", { month: "long", year: "numeric" });
   const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -54,7 +70,7 @@ export default function Dashboard() {
       {/* Stats */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "16px", marginBottom: "28px" }}>
         {[
-          { label: "Participantes ativos", value: String(totalAfiliadas), color: "#111" },
+          { label: "Participantes ativos", value: String(totalParticipantes), color: "#111" },
           { label: "Comissões geradas", value: fmt(totalComissao), color: "#111" },
           { label: "A pagar este mês", value: fmt(totalAReceber), color: totalAReceber > 0 ? "#e53e3e" : "#38a169" },
         ].map(({ label, value, color }) => (

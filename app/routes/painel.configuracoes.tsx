@@ -9,12 +9,29 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     .from("tiers_comissao")
     .select("*")
     .order("vendas_ate", { ascending: true, nullsFirst: false });
-  return { tiers: tiers ?? [] };
+  const { data: config } = await supabase
+    .from("configuracoes_gerais")
+    .select("colecao_sem_design_id")
+    .eq("id", 1)
+    .single();
+  return { tiers: tiers ?? [], colecaoSemDesignId: config?.colecao_sem_design_id ?? "" };
 };
 
 export const action = async ({ request }: ActionFunctionArgs) => {
   await requireAuth(request);
   const form = await request.formData();
+  const intent = form.get("intent") as string;
+
+  if (intent === "salvar_colecao") {
+    const colecaoId = (form.get("colecao_sem_design_id") as string)?.trim() || null;
+    const { error } = await supabase
+      .from("configuracoes_gerais")
+      .update({ colecao_sem_design_id: colecaoId, atualizado_em: new Date().toISOString() })
+      .eq("id", 1);
+    if (error) return { erro_colecao: error.message };
+    return { sucesso_colecao: true };
+  }
+
   const id = form.get("id") as string;
   const percentual = parseFloat(form.get("percentual") as string);
   const vendas_ate_raw = form.get("vendas_ate") as string;
@@ -40,8 +57,9 @@ const inputStyle: React.CSSProperties = {
 const EMOJI: Record<string, string> = { Bronze: "🥉", Prata: "🥈", Ouro: "🥇" };
 
 export default function PainelConfiguracoes() {
-  const { tiers } = useLoaderData<typeof loader>();
+  const { tiers, colecaoSemDesignId } = useLoaderData<typeof loader>();
   const fetcher = useFetcher<{ erro?: string; sucesso?: boolean }>();
+  const colecaoFetcher = useFetcher<{ erro_colecao?: string; sucesso_colecao?: boolean }>();
 
   return (
     <>
@@ -130,6 +148,44 @@ export default function PainelConfiguracoes() {
             })}
           </ul>
         </div>
+      </div>
+
+      <div style={{ background: "#fff", borderRadius: "12px", padding: "24px", boxShadow: "0 1px 3px rgba(0,0,0,0.08)", maxWidth: "600px", marginTop: "24px" }}>
+        <h2 style={{ margin: "0 0 8px", fontSize: "16px", fontWeight: "700" }}>Cupons de afiliada × produtos de designer</h2>
+        <p style={{ margin: "0 0 20px", fontSize: "13px", color: "#888" }}>
+          Cria uma coleção na Shopify com os produtos que <strong>não</strong> são de designer e cole o ID dela aqui.
+          Cupons novos criados pelo app passam a valer só nessa coleção — não dividem comissão com designers.
+        </p>
+
+        <div style={{ background: "#f9f9f9", borderRadius: "8px", padding: "14px 16px", marginBottom: "20px", fontSize: "13px", color: "#666", lineHeight: "1.8" }}>
+          <strong>Como pegar o ID:</strong> Shopify Admin → Produtos → Coleções → abra a coleção → o ID é o número no final da URL
+          (ex: <code>.../collections/</code><strong>123456789</strong>).
+          Lembre de tirar da coleção os produtos assim que vincular eles a um designer.
+        </div>
+
+        <colecaoFetcher.Form method="post">
+          <input type="hidden" name="intent" value="salvar_colecao" />
+          <div style={{ marginBottom: "14px" }}>
+            <label style={{ display: "block", fontSize: "12px", fontWeight: "600", color: "#888", marginBottom: "6px" }}>
+              ID da coleção "sem design"
+            </label>
+            <input
+              name="colecao_sem_design_id"
+              defaultValue={colecaoSemDesignId}
+              placeholder="Ex: 123456789 (vazio = cupom vale em tudo)"
+              style={inputStyle}
+            />
+          </div>
+          {colecaoFetcher.data?.erro_colecao && (
+            <p style={{ color: "#e53e3e", fontSize: "13px", marginBottom: "12px" }}>{colecaoFetcher.data.erro_colecao}</p>
+          )}
+          {colecaoFetcher.data?.sucesso_colecao && (
+            <p style={{ color: "#38a169", fontSize: "13px", marginBottom: "12px" }}>✓ Salvo com sucesso</p>
+          )}
+          <button type="submit" style={{ padding: "9px 16px", background: "#111", color: "#fff", border: "none", borderRadius: "6px", fontWeight: "700", fontSize: "13px", cursor: "pointer" }}>
+            Salvar
+          </button>
+        </colecaoFetcher.Form>
       </div>
     </>
   );

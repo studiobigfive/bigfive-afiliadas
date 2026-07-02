@@ -28,7 +28,7 @@ export default function AfiliadaLogin() {
             <input
               name="cupom"
               required
-              placeholder="Ex: MARIA15"
+              placeholder="SEUCUPOM"
               autoComplete="off"
               style={{ width: "100%", padding: "12px 14px", border: "1.5px solid #ddd", borderRadius: "10px", fontSize: "15px", boxSizing: "border-box", textTransform: "uppercase", letterSpacing: "2px", fontWeight: "700", textAlign: "center", outline: "none" }}
             />

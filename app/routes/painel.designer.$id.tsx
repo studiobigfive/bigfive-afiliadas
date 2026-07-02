@@ -39,29 +39,6 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
   const de = deRaw <= ateRaw ? deRaw : ateRaw;
   const ate = deRaw <= ateRaw ? ateRaw : deRaw;
 
-  const { data: designer } = await supabase
-    .from("designers")
-    .select("*")
-    .eq("id", id)
-    .single();
-
-  if (!designer) throw new Response("Designer não encontrado", { status: 404 });
-
-  const { data: produtos } = await supabase
-    .from("designer_produtos")
-    .select("id, shopify_product_id, nome_produto")
-    .eq("designer_id", id)
-    .order("nome_produto");
-
-  const { data: pedidos } = await supabase
-    .from("pedidos_designer")
-    .select("id, shopify_order_id, nome_produto, shopify_product_id, valor_item, comissao, mes_referencia, criado_em, cancelado")
-    .eq("designer_id", id)
-    .gte("criado_em", `${de}T00:00:00`)
-    .lte("criado_em", `${ate}T23:59:59`)
-    .order("criado_em", { ascending: false })
-    .limit(100);
-
   const mesesNoRange = new Set<string>();
   const deDate = new Date(de);
   const ateDate = new Date(ate);
@@ -72,12 +49,26 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
   }
   const mesesArray = Array.from(mesesNoRange).sort();
 
-  const { data: pagamentos } = await supabase
-    .from("pagamentos_designer")
-    .select("id, valor, mes_referencia, observacao, pago_em")
-    .eq("designer_id", id)
-    .in("mes_referencia", mesesArray.length ? mesesArray : ["_none_"])
-    .order("pago_em", { ascending: false });
+  const [{ data: designer }, { data: produtos }, { data: pedidos }, { data: pagamentos }] = await Promise.all([
+    supabase.from("designers").select("*").eq("id", id).single(),
+    supabase.from("designer_produtos").select("id, shopify_product_id, nome_produto").eq("designer_id", id).order("nome_produto"),
+    supabase
+      .from("pedidos_designer")
+      .select("id, shopify_order_id, nome_produto, shopify_product_id, valor_item, comissao, mes_referencia, criado_em, cancelado")
+      .eq("designer_id", id)
+      .gte("criado_em", `${de}T00:00:00`)
+      .lte("criado_em", `${ate}T23:59:59`)
+      .order("criado_em", { ascending: false })
+      .limit(100),
+    supabase
+      .from("pagamentos_designer")
+      .select("id, valor, mes_referencia, observacao, pago_em")
+      .eq("designer_id", id)
+      .in("mes_referencia", mesesArray.length ? mesesArray : ["_none_"])
+      .order("pago_em", { ascending: false }),
+  ]);
+
+  if (!designer) throw new Response("Designer não encontrado", { status: 404 });
 
   const pedidosFiltrados = pedidos ?? [];
   const pagamentosFiltrados = pagamentos ?? [];
@@ -141,13 +132,20 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
   if (intent === "add_produto") {
     const shopifyProductId = form.get("shopify_product_id") as string;
     const nomeProduto = form.get("nome_produto") as string;
-    const { data: existente } = await supabase
+    // Verifica se o produto já está vinculado a QUALQUER designer (não só este) —
+    // uma estampa só pode pertencer a um designer por vez.
+    const { data: vinculoExistente } = await supabase
       .from("designer_produtos")
-      .select("id")
-      .eq("designer_id", id)
+      .select("id, designer_id, designers(nome)")
       .eq("shopify_product_id", shopifyProductId)
-      .single();
-    if (existente) return { erro_produto: "Produto já vinculado" };
+      .maybeSingle();
+    if (vinculoExistente) {
+      if (vinculoExistente.designer_id === id) {
+        return { erro_produto: "Produto já vinculado a este designer" };
+      }
+      const nomeOutro = (vinculoExistente.designers as any)?.nome ?? "outro designer";
+      return { erro_produto: `Este produto já está vinculado a ${nomeOutro}` };
+    }
     await supabase.from("designer_produtos").insert({
       designer_id: id,
       shopify_product_id: shopifyProductId,
