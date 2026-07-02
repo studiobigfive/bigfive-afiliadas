@@ -38,7 +38,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 };
 
 const PAINEL_URL = "https://bigfive-afiliadas.vercel.app/painel";
-const PORTAL_URL = "https://bigfive-afiliadas.vercel.app/afiliada/login";
+const PORTAL_URL = "https://bigfive-afiliadas.vercel.app/parcerias/login";
 
 export default function Dashboard() {
   const { totalParticipantes, totalComissao, totalAReceber, mes } = useLoaderData<typeof loader>();
@@ -53,7 +53,7 @@ export default function Dashboard() {
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "28px" }}>
         <div>
           <h1 style={{ margin: "0 0 4px", fontSize: "22px", fontWeight: "700", color: "#111", textTransform: "capitalize" }}>
-            Programa de Afiliados — {mesLabel}
+            Programa de Parcerias — {mesLabel}
           </h1>
           <p style={{ margin: 0, fontSize: "14px", color: "#6b7280" }}>Gerencie participantes e acompanhe comissões</p>
         </div>
@@ -100,7 +100,7 @@ export default function Dashboard() {
 
         <div style={{ background: "#fff", borderRadius: "16px", padding: "28px", boxShadow: "0 1px 3px rgba(0,0,0,0.08)", display: "flex", flexDirection: "column", justifyContent: "space-between", minHeight: "160px" }}>
           <div>
-            <h2 style={{ margin: "0 0 8px", fontSize: "17px", fontWeight: "700", color: "#111" }}>Programa de Afiliados</h2>
+            <h2 style={{ margin: "0 0 8px", fontSize: "17px", fontWeight: "700", color: "#111" }}>Programa de Parcerias</h2>
             <p style={{ margin: 0, fontSize: "13px", color: "#888", lineHeight: "1.5" }}>Link para participantes verem seus pedidos, comissões e histórico de pagamentos</p>
           </div>
           <div style={{ display: "flex", gap: "8px", alignItems: "center", marginTop: "20px" }}>

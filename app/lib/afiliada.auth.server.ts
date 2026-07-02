@@ -9,7 +9,7 @@ if (!process.env.DASHBOARD_SECRET) {
 // Sessão autenticada (após verificar o código)
 const authStorage = createCookieSessionStorage({
   cookie: {
-    name: "bf_afiliada_session",
+    name: "bf_parcerias_session",
     httpOnly: true,
     maxAge: 60 * 60 * 24 * 7,
     path: "/",
@@ -22,7 +22,7 @@ const authStorage = createCookieSessionStorage({
 // Sessão temporária enquanto espera o código OTP
 const pendingStorage = createCookieSessionStorage({
   cookie: {
-    name: "bf_afiliada_pending",
+    name: "bf_parcerias_pending",
     httpOnly: true,
     maxAge: 60 * 15,
     path: "/",
@@ -35,7 +35,7 @@ const pendingStorage = createCookieSessionStorage({
 export async function requireAfiliadaAuth(request: Request): Promise<string> {
   const session = await authStorage.getSession(request.headers.get("Cookie"));
   const afiliadaId = session.get("afiliada_id");
-  if (!afiliadaId) throw redirect("/afiliada/login");
+  if (!afiliadaId) throw redirect("/parcerias/login");
   return afiliadaId as string;
 }
 
@@ -108,7 +108,7 @@ export async function iniciarLoginAction(request: Request) {
     pendingSession.set("afiliada_id", afiliada.id);
     pendingSession.set("email_mascarado", mascararEmail(afiliada.email));
 
-    throw redirect("/afiliada/verificar", {
+    throw redirect("/parcerias/verificar", {
       headers: { "Set-Cookie": await pendingStorage.commitSession(pendingSession) },
     });
   } catch (e) {
@@ -122,7 +122,7 @@ export async function verificarCodigoAction(request: Request) {
   const pendingSession = await pendingStorage.getSession(request.headers.get("Cookie"));
   const afiliadaId = pendingSession.get("afiliada_id");
 
-  if (!afiliadaId) throw redirect("/afiliada/login");
+  if (!afiliadaId) throw redirect("/parcerias/login");
 
   const form = await request.formData();
   const codigo = (form.get("codigo") as string)?.trim();
@@ -161,7 +161,7 @@ export async function verificarCodigoAction(request: Request) {
   const authSession = await authStorage.getSession();
   authSession.set("afiliada_id", afiliadaId);
 
-  throw redirect("/afiliada", {
+  throw redirect("/parcerias", {
     headers: [
       ["Set-Cookie", await authStorage.commitSession(authSession)],
       ["Set-Cookie", await pendingStorage.destroySession(pendingSession)],
@@ -182,7 +182,7 @@ function mascararEmail(email: string): string {
 
 export async function logoutAfiliada(request: Request) {
   const session = await authStorage.getSession(request.headers.get("Cookie"));
-  throw redirect("/afiliada/login", {
+  throw redirect("/parcerias/login", {
     headers: { "Set-Cookie": await authStorage.destroySession(session) },
   });
 }

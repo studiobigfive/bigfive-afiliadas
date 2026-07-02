@@ -4,7 +4,7 @@ import { verificarCodigoAction, getPendingEmail } from "../lib/afiliada.auth.ser
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const emailMascarado = await getPendingEmail(request);
-  if (!emailMascarado) throw redirect("/afiliada/login");
+  if (!emailMascarado) throw redirect("/parcerias/login");
   return { emailMascarado };
 };
 
@@ -67,7 +67,7 @@ export default function AfiliadaVerificar() {
 
         <p style={{ textAlign: "center", marginTop: "20px", fontSize: "13px", color: "#999" }}>
           Não recebeu?{" "}
-          <a href="/afiliada/login" style={{ color: "#00C9A7", fontWeight: "600", textDecoration: "none" }}>
+          <a href="/parcerias/login" style={{ color: "#00C9A7", fontWeight: "600", textDecoration: "none" }}>
             Tentar novamente
           </a>
         </p>

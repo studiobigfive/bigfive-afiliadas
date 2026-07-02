@@ -12,6 +12,12 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     throw redirect(`/app?${url.searchParams.toString()}`);
   }
 
+  // Domínio dedicado ao portal de parcerias — manda direto pro login, sem passar
+  // pela tela genérica de instalação (que só faz sentido no domínio da Shopify).
+  if (url.hostname === "parcerias.bigfivehype.com.br") {
+    throw redirect("/parcerias/login");
+  }
+
   return { showForm: Boolean(login) };
 };
 

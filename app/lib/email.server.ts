@@ -10,12 +10,12 @@ export async function enviarCodigoOTP(email: string, nome: string, codigo: strin
   const { error } = await resend.emails.send({
     from: process.env.RESEND_FROM || "onboarding@resend.dev",
     to: email,
-    subject: `${codigo} é seu código BigFive Afiliadas`,
+    subject: `${codigo} é seu código BigFive Parcerias`,
     html: wrapHtml(`
       <div style="font-family:Inter,sans-serif;max-width:480px;margin:40px auto;padding:40px 24px;background:#fff;border-radius:16px;">
         <div style="font-weight:800;font-size:18px;letter-spacing:3px;margin-bottom:32px;color:#111;">BIGFIVE</div>
         <p style="font-size:15px;color:#333;margin:0 0 8px;">Olá, <strong>${nome}</strong>!</p>
-        <p style="font-size:14px;color:#666;margin:0 0 28px;">Use o código abaixo para acessar o Programa de Afiliados:</p>
+        <p style="font-size:14px;color:#666;margin:0 0 28px;">Use o código abaixo para acessar o Programa de Parcerias:</p>
         <div style="background:#111;color:#00C9A7;font-size:38px;font-weight:800;letter-spacing:10px;text-align:center;padding:28px;border-radius:12px;margin-bottom:24px;">
           ${codigo}
         </div>
@@ -64,7 +64,7 @@ export async function enviarNotificacaoPedido(
         </a>
 
         <p style="font-size:12px;color:#bbb;text-align:center;margin:24px 0 0;">
-          Você está recebendo este e-mail porque participa do Programa de Afiliados BigFive Hype.
+          Você está recebendo este e-mail porque participa do Programa de Parcerias BigFive Hype.
         </p>
       </div>
     `),
