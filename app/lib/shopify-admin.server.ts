@@ -8,6 +8,7 @@ async function getShopifyCredentials(): Promise<{ shop: string; accessToken: str
     .from("Session")
     .select("shop, accessToken")
     .not("accessToken", "is", null)
+    .order("id", { ascending: false })
     .limit(1)
     .single();
 

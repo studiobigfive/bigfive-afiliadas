@@ -12,11 +12,14 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   const shopifyOrderId = String(order.id);
 
   // Busca dados do pedido + afiliada para notificação ANTES de cancelar
-  const { data: pedido } = await supabase
+  const { data: pedido, error: pedidoErr } = await supabase
     .from("pedidos")
     .select("id, comissao, afiliadas(nome, email)")
     .eq("shopify_order_id", shopifyOrderId)
     .single();
+  if (pedidoErr && pedidoErr.code !== "PGRST116") {
+    console.error("[webhook/cancelled] erro ao buscar pedido:", pedidoErr.message);
+  }
 
   // Marca pedido de afiliada como cancelado
   await supabase

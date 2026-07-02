@@ -1,7 +1,7 @@
 import { createCookieSessionStorage, redirect } from "react-router";
 
 if (!process.env.DASHBOARD_SECRET) {
-  console.warn("[painel.auth] AVISO: DASHBOARD_SECRET não definido — usando fallback inseguro. Defina essa variável no Vercel.");
+  throw new Error("DASHBOARD_SECRET é obrigatório. Defina essa variável no Vercel.");
 }
 
 const { getSession, commitSession, destroySession } = createCookieSessionStorage({

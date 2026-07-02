@@ -1,4 +1,6 @@
 export function mesAtual(): string {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  const partes = new Date().toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo", year: "numeric", month: "2-digit" });
+  // partes = "MM/AAAA"
+  const [m, a] = partes.split("/");
+  return `${a}-${m}`;
 }
