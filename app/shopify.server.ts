@@ -19,6 +19,13 @@ const shopify = shopifyApp({
   future: {
     expiringOfflineAccessTokens: true,
   },
+  hooks: {
+    // Sem isso, os webhooks declarados no shopify.app.toml nunca ficam
+    // de fato inscritos na loja — precisa rodar toda vez que autentica.
+    afterAuth: async ({ session }) => {
+      await shopify.registerWebhooks({ session });
+    },
+  },
   ...(process.env.SHOP_CUSTOM_DOMAIN
     ? { customShopDomains: [process.env.SHOP_CUSTOM_DOMAIN] }
     : {}),
