@@ -2,6 +2,7 @@ import "@shopify/shopify-app-react-router/adapters/node";
 import {
   ApiVersion,
   AppDistribution,
+  DeliveryMethod,
   shopifyApp,
 } from "@shopify/shopify-app-react-router/server";
 import { PrismaSessionStorage } from "@shopify/shopify-app-session-storage-prisma";
@@ -19,9 +20,18 @@ const shopify = shopifyApp({
   future: {
     expiringOfflineAccessTokens: true,
   },
+  // Registro explícito por loja — mais confiável que depender do shopify.app.toml
+  // + `shopify app deploy` (que já ficou apontando pro app errado uma vez).
+  webhooks: {
+    APP_UNINSTALLED: { deliveryMethod: DeliveryMethod.Http, callbackUrl: "/webhooks/app/uninstalled" },
+    APP_SCOPES_UPDATE: { deliveryMethod: DeliveryMethod.Http, callbackUrl: "/webhooks/app/scopes_update" },
+    ORDERS_PAID: { deliveryMethod: DeliveryMethod.Http, callbackUrl: "/webhooks/orders/paid" },
+    ORDERS_CANCELLED: { deliveryMethod: DeliveryMethod.Http, callbackUrl: "/webhooks/orders/cancelled" },
+    REFUNDS_CREATE: { deliveryMethod: DeliveryMethod.Http, callbackUrl: "/webhooks/refunds/create" },
+  },
   hooks: {
-    // Sem isso, os webhooks declarados no shopify.app.toml nunca ficam
-    // de fato inscritos na loja — precisa rodar toda vez que autentica.
+    // Garante que a inscrição acima seja aplicada de verdade na loja
+    // toda vez que alguém autentica (instala ou reautentica).
     afterAuth: async ({ session }) => {
       await shopify.registerWebhooks({ session });
     },
