@@ -138,7 +138,7 @@ export default function PainelAfiliadaDetalhe() {
     if (fetcher.data?.sucesso === "pago") setConfirmado(false);
   }, [fetcher.data]);
 
-  if (!afiliada) return <p>Afiliada não encontrada.</p>;
+  if (!afiliada) return <p>Influencer não encontrada.</p>;
 
   const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
   const fmtDate = (d: string) => new Date(d).toLocaleDateString("pt-BR");
@@ -185,7 +185,7 @@ export default function PainelAfiliadaDetalhe() {
     <>
       {/* Cabeçalho */}
       <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "24px", flexWrap: "wrap" }}>
-        <Link to="/painel/afiliadas" style={{ color: "#00C9A7", textDecoration: "none", fontWeight: "600", fontSize: "14px" }}>← Participantes</Link>
+        <Link to="/painel/influencers" style={{ color: "#00C9A7", textDecoration: "none", fontWeight: "600", fontSize: "14px" }}>← Influencers</Link>
         <span style={{ color: "#ccc" }}>/</span>
         <h1 style={{ margin: 0, fontSize: "20px", fontWeight: "700" }}>{afiliada.nome}</h1>
         <span style={{ background: "#111", color: "#fff", padding: "3px 10px", borderRadius: "4px", fontSize: "11px", fontWeight: "700", letterSpacing: "1px" }}>{afiliada.cupom}</span>

@@ -193,7 +193,7 @@ export default function PainelAfiliadas() {
           )}
           {sucesso && (
             <div style={{ background: "#f0fff4", color: "#38a169", padding: "10px 12px", borderRadius: "8px", fontSize: "13px", marginBottom: "14px" }}>
-              Afiliada cadastrada com sucesso!
+              Influencer cadastrada com sucesso!
             </div>
           )}
 
@@ -225,7 +225,7 @@ export default function PainelAfiliadas() {
               {!a.ativo &&<span style={{ marginLeft: "6px", background: "#fee2e2", color: "#e53e3e", padding: "2px 8px", borderRadius: "4px", fontSize: "11px", fontWeight: "700" }}>INATIVA</span>}
             </div>
             <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
-              <Link to={`/painel/afiliada/${a.id}`} style={{ color: "#00C9A7", textDecoration: "none", fontWeight: "600", fontSize: "14px" }}>Ver</Link>
+              <Link to={`/painel/influencer/${a.id}`} style={{ color: "#00C9A7", textDecoration: "none", fontWeight: "600", fontSize: "14px" }}>Ver</Link>
               <fetcher.Form method="post">
                 <input type="hidden" name="intent" value="toggle" />
                 <input type="hidden" name="id" value={a.id} />

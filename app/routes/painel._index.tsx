@@ -82,8 +82,8 @@ export default function PainelIndex() {
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "24px" }}>
         <h1 style={{ margin: 0, fontSize: "22px", fontWeight: "700", textTransform: "capitalize" }}>Dashboard — {mesLabel}</h1>
         <div style={{ display: "flex", gap: "10px" }}>
-          <Link to="/painel/afiliadas" style={{ background: "#111", color: "#fff", padding: "10px 18px", borderRadius: "8px", textDecoration: "none", fontWeight: "600", fontSize: "14px" }}>
-            + Afiliada
+          <Link to="/painel/influencers" style={{ background: "#111", color: "#fff", padding: "10px 18px", borderRadius: "8px", textDecoration: "none", fontWeight: "600", fontSize: "14px" }}>
+            + Influencer
           </Link>
           <Link to="/painel/designers" style={{ background: "#00C9A7", color: "#fff", padding: "10px 18px", borderRadius: "8px", textDecoration: "none", fontWeight: "600", fontSize: "14px" }}>
             + Designer
@@ -96,29 +96,29 @@ export default function PainelIndex() {
         <p style={{ margin: "0 0 4px", fontSize: "12px", color: "#888", fontWeight: "700", textTransform: "uppercase", letterSpacing: "0.5px" }}>Total a pagar este mês</p>
         <p style={{ margin: "0 0 8px", fontSize: "38px", fontWeight: "800", color: totalDever > 0 ? "#e53e3e" : "#111" }}>{fmt(totalDever)}</p>
         <div style={{ display: "flex", gap: "20px", fontSize: "13px", color: "#666" }}>
-          <span>Afiliadas: <strong style={{ color: "#444" }}>{fmt(deverAfiliadas)}</strong></span>
+          <span>Influencers: <strong style={{ color: "#444" }}>{fmt(deverAfiliadas)}</strong></span>
           <span style={{ color: "#ddd" }}>·</span>
           <span>Designers: <strong style={{ color: "#444" }}>{fmt(deverDesigners)}</strong></span>
         </div>
         <p style={{ margin: "8px 0 0", fontSize: "13px", color: "#999" }}>Pagamentos até dia 10 do mês seguinte</p>
       </div>
 
-      {/* Afiliadas */}
+      {/* Influencers */}
       <div style={{ background: "#fff", borderRadius: "12px", boxShadow: "0 1px 3px rgba(0,0,0,0.08)", overflow: "hidden", marginBottom: "24px" }}>
         <div style={{ padding: "16px 24px", borderBottom: "1px solid #eee", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <h2 style={{ margin: 0, fontSize: "15px", fontWeight: "700" }}>Afiliadas <span style={{ color: "#aaa", fontWeight: "400", fontSize: "13px" }}>({resumo.length})</span></h2>
+          <h2 style={{ margin: 0, fontSize: "15px", fontWeight: "700" }}>Influencers <span style={{ color: "#aaa", fontWeight: "400", fontSize: "13px" }}>({resumo.length})</span></h2>
         </div>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr style={{ background: "#f9f9f9", borderBottom: "1px solid #eee" }}>
-              {["Afiliada", "Cupom", "Pedidos", "Vendas", "Comissão", "A receber", ""].map(h => (
+              {["Influencer", "Cupom", "Pedidos", "Vendas", "Comissão", "A receber", ""].map(h => (
                 <th key={h} style={th}>{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
             {resumo.length === 0 && (
-              <tr><td colSpan={7} style={{ ...td, textAlign: "center", color: "#999" }}>Nenhuma afiliada ativa ainda</td></tr>
+              <tr><td colSpan={7} style={{ ...td, textAlign: "center", color: "#999" }}>Nenhuma influencer ativa ainda</td></tr>
             )}
             {resumo.map((a) => (
               <tr key={a.id} style={{ borderBottom: "1px solid #f5f5f5" }}>
@@ -131,7 +131,7 @@ export default function PainelIndex() {
                 <td style={{ ...td, color: "#666" }}>{fmt(a.totalVendas)}</td>
                 <td style={{ ...td, color: "#666" }}>{fmt(a.totalComissao)}</td>
                 <td style={{ ...td, fontWeight: "700", color: a.aReceber > 0 ? "#e53e3e" : "#38a169" }}>{fmt(a.aReceber)}</td>
-                <td style={td}><Link to={`/painel/afiliada/${a.id}`} style={{ color: "#00C9A7", textDecoration: "none", fontWeight: "600", fontSize: "14px" }}>Ver →</Link></td>
+                <td style={td}><Link to={`/painel/influencer/${a.id}`} style={{ color: "#00C9A7", textDecoration: "none", fontWeight: "600", fontSize: "14px" }}>Ver →</Link></td>
               </tr>
             ))}
           </tbody>

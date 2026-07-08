@@ -66,7 +66,7 @@ export default function PainelConfiguracoes() {
       <div style={{ marginBottom: "24px" }}>
         <h1 style={{ margin: "0 0 4px", fontSize: "22px", fontWeight: "700" }}>Configurações</h1>
         <p style={{ margin: 0, fontSize: "14px", color: "#888" }}>
-          Tiers de comissão baseados no total vendido pela afiliada no mês
+          Tiers de comissão baseados no total vendido pela influencer no mês
         </p>
       </div>
 
@@ -74,7 +74,7 @@ export default function PainelConfiguracoes() {
         <h2 style={{ margin: "0 0 20px", fontSize: "16px", fontWeight: "700" }}>Tiers de comissão</h2>
 
         <div style={{ background: "#f9f9f9", borderRadius: "8px", padding: "14px 16px", marginBottom: "24px", fontSize: "13px", color: "#666", lineHeight: "1.6" }}>
-          A taxa aplicada depende do <strong>total acumulado no mês</strong>. Quando a afiliada cruza um tier, os próximos pedidos já entram com a taxa mais alta.
+          A taxa aplicada depende do <strong>total acumulado no mês</strong>. Quando a influencer cruza um tier, os próximos pedidos já entram com a taxa mais alta.
         </div>
 
         <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
@@ -151,7 +151,7 @@ export default function PainelConfiguracoes() {
       </div>
 
       <div style={{ background: "#fff", borderRadius: "12px", padding: "24px", boxShadow: "0 1px 3px rgba(0,0,0,0.08)", maxWidth: "600px", marginTop: "24px" }}>
-        <h2 style={{ margin: "0 0 8px", fontSize: "16px", fontWeight: "700" }}>Cupons de afiliada × produtos de designer</h2>
+        <h2 style={{ margin: "0 0 8px", fontSize: "16px", fontWeight: "700" }}>Cupons de influencer × produtos de designer</h2>
         <p style={{ margin: "0 0 20px", fontSize: "13px", color: "#888" }}>
           Cria uma coleção na Shopify com os produtos que <strong>não</strong> são de designer e cole o ID dela aqui.
           Cupons novos criados pelo app passam a valer só nessa coleção — não dividem comissão com designers.

@@ -91,9 +91,9 @@ export async function enviarNotificacaoAdmin(
     html: wrapHtml(`
       <div style="font-family:Inter,sans-serif;max-width:480px;margin:40px auto;padding:32px 24px;background:#fff;border-radius:16px;">
         <div style="font-weight:800;font-size:18px;letter-spacing:3px;margin-bottom:24px;color:#111;">BIGFIVE — Admin</div>
-        <p style="font-size:15px;color:#333;margin:0 0 16px;">Nova venda registrada via cupom de afiliado:</p>
+        <p style="font-size:15px;color:#333;margin:0 0 16px;">Nova venda registrada via cupom de influencer:</p>
         <table style="width:100%;border-collapse:collapse;font-size:14px;">
-          <tr><td style="padding:8px 0;color:#666;">Afiliada</td><td style="padding:8px 0;font-weight:700;color:#111;">${nomeAfiliada}</td></tr>
+          <tr><td style="padding:8px 0;color:#666;">Influencer</td><td style="padding:8px 0;font-weight:700;color:#111;">${nomeAfiliada}</td></tr>
           <tr><td style="padding:8px 0;color:#666;">Cupom</td><td style="padding:8px 0;font-weight:700;letter-spacing:1px;">${cupom}</td></tr>
           <tr><td style="padding:8px 0;color:#666;">Valor da venda</td><td style="padding:8px 0;font-weight:700;color:#111;">${fmt(valorVenda)}</td></tr>
           <tr><td style="padding:8px 0;color:#666;">Comissão</td><td style="padding:8px 0;font-weight:700;color:#e53e3e;">${fmt(comissao)}</td></tr>

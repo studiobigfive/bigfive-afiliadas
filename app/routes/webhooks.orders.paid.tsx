@@ -4,7 +4,7 @@ import { supabase } from "../lib/supabase.server";
 import { mesAtual } from "../lib/comissao";
 import { enviarNotificacaoPedido, enviarNotificacaoAdmin } from "../lib/email.server";
 
-const PORTAL_URL = process.env.APP_URL ? `${process.env.APP_URL}/parcerias` : "https://bigfive-afiliadas.vercel.app/parcerias";
+const PORTAL_URL = process.env.APP_URL ? `${process.env.APP_URL}/parcerias` : "https://parcerias.bigfivehype.com.br/parcerias";
 
 export const action = async ({ request }: ActionFunctionArgs) => {
   const { payload, topic } = await authenticate.webhook(request);

@@ -37,8 +37,8 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   return { totalParticipantes, totalComissao, totalAReceber, mes };
 };
 
-const PAINEL_URL = "https://bigfive-afiliadas.vercel.app/painel";
-const PORTAL_URL = "https://bigfive-afiliadas.vercel.app/parcerias/login";
+const PAINEL_URL = "https://parcerias.bigfivehype.com.br/painel";
+const PORTAL_URL = "https://parcerias.bigfivehype.com.br/parcerias/login";
 
 export default function Dashboard() {
   const { totalParticipantes, totalComissao, totalAReceber, mes } = useLoaderData<typeof loader>();
