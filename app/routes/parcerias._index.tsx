@@ -1,3 +1,4 @@
+import { useState } from "react";
 import type { LoaderFunctionArgs } from "react-router";
 import { useLoaderData, Form } from "react-router";
 import { requireAfiliadaAuth } from "../lib/afiliada.auth.server";
@@ -83,10 +84,28 @@ function fmtMes(yyyymm: string) {
   return new Date(Number(a), Number(m) - 1).toLocaleString("pt-BR", { month: "long", year: "numeric" });
 }
 
+const paginaOpcoes = [5, 10, 25, 50];
+
 export default function AfiliadaDashboard() {
   const { afiliada, pedidos, pagamentos, totalComissao, aReceber, de, ate, truncated } = useLoaderData<typeof loader>();
   const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
   const fmtDate = (d: string) => new Date(d).toLocaleDateString("pt-BR");
+  const fmtDateTime = (d: string) => new Date(d).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+
+  const [busca, setBusca] = useState("");
+  const [porPagina, setPorPagina] = useState(10);
+  const [pagina, setPagina] = useState(1);
+
+  const pedidosFiltrados = busca.trim()
+    ? pedidos.filter((p) => String(p.shopify_order_id).toLowerCase().includes(busca.trim().toLowerCase()))
+    : pedidos;
+
+  const totalPaginas = Math.max(1, Math.ceil(pedidosFiltrados.length / porPagina));
+  const paginaAtual = Math.min(pagina, totalPaginas);
+  const pedidosPagina = pedidosFiltrados.slice((paginaAtual - 1) * porPagina, paginaAtual * porPagina);
+
+  const totalVendas = pedidos.filter((p) => !p.cancelado).reduce((s, p) => s + p.valor_total, 0);
+  const percentualEfetivo = totalVendas > 0 ? Math.round((totalComissao / totalVendas) * 1000) / 10 : 0;
 
   // Issue #12: exporta pedidos como CSV
   const exportarCSV = () => {
@@ -109,11 +128,18 @@ export default function AfiliadaDashboard() {
     URL.revokeObjectURL(url);
   };
 
+  const statCard = (label: string, value: string, color = "#111") => (
+    <div style={{ background: "#fff", borderRadius: "12px", padding: "20px", boxShadow: "0 1px 3px rgba(0,0,0,0.08)" }}>
+      <p style={{ margin: "0 0 8px", fontSize: "11px", color: "#888", fontWeight: "700", textTransform: "uppercase", letterSpacing: "0.5px" }}>{label}</p>
+      <p style={{ margin: 0, fontSize: "26px", fontWeight: "800", color }}>{value}</p>
+    </div>
+  );
+
   const atalho = (label: string, deVal: string, ateVal: string) => (
     <a
       href={`?de=${deVal}&ate=${ateVal}`}
       style={{
-        padding: "5px 12px", borderRadius: "6px", fontSize: "12px", fontWeight: "600",
+        padding: "7px 14px", borderRadius: "8px", fontSize: "12px", fontWeight: "600",
         textDecoration: "none", border: "1px solid #ddd",
         background: de === deVal && ate === ateVal ? "#111" : "#fff",
         color: de === deVal && ate === ateVal ? "#fff" : "#555",
@@ -126,7 +152,7 @@ export default function AfiliadaDashboard() {
   return (
     <>
       {/* Boas-vindas */}
-      <div style={{ marginBottom: "24px" }}>
+      <div style={{ marginBottom: "20px" }}>
         <h1 style={{ margin: "0 0 8px", fontSize: "22px", fontWeight: "700" }}>Olá, {afiliada?.nome}!</h1>
         <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
           <span style={{ background: "#111", color: "#fff", padding: "3px 10px", borderRadius: "4px", fontSize: "11px", fontWeight: "700", letterSpacing: "2px" }}>{afiliada?.cupom}</span>
@@ -136,41 +162,29 @@ export default function AfiliadaDashboard() {
         </div>
       </div>
 
-      {/* Filtro de período */}
-      <div style={{ background: "#fff", borderRadius: "12px", padding: "14px 20px", boxShadow: "0 1px 3px rgba(0,0,0,0.08)", marginBottom: "24px" }}>
-        <Form method="get" style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
-          <span style={{ fontSize: "13px", fontWeight: "600", color: "#666" }}>Período:</span>
-          <input type="date" name="de" defaultValue={de} style={dateInput} />
-          <span style={{ color: "#aaa", fontSize: "13px" }}>até</span>
-          <input type="date" name="ate" defaultValue={ate} style={dateInput} />
-          <button type="submit" style={{ padding: "7px 16px", background: "#111", color: "#fff", border: "none", borderRadius: "8px", fontWeight: "700", fontSize: "13px", cursor: "pointer" }}>
-            Filtrar
-          </button>
-          <div style={{ display: "flex", gap: "6px" }}>
-            {atalho("Este mês", primeiroDiaMes(mesAtual()), hojeStr())}
-            {atalho("Mês passado", primeiroDiaMes(mesAnterior()), ultimoDiaMes(mesAnterior()))}
-          </div>
-        </Form>
-      </div>
-
       {/* Stats */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", marginBottom: "24px" }}>
-        <div style={{ background: "#fff", borderRadius: "12px", padding: "24px", boxShadow: "0 1px 3px rgba(0,0,0,0.08)" }}>
-          <p style={{ margin: "0 0 8px", fontSize: "11px", color: "#888", fontWeight: "700", textTransform: "uppercase", letterSpacing: "0.5px" }}>Comissão gerada</p>
-          <p style={{ margin: 0, fontSize: "30px", fontWeight: "800", color: "#111" }}>{fmt(totalComissao)}</p>
-        </div>
-        <div style={{ background: "#fff", borderRadius: "12px", padding: "24px", boxShadow: "0 1px 3px rgba(0,0,0,0.08)" }}>
-          <p style={{ margin: "0 0 8px", fontSize: "11px", color: "#888", fontWeight: "700", textTransform: "uppercase", letterSpacing: "0.5px" }}>A receber</p>
-          <p style={{ margin: 0, fontSize: "30px", fontWeight: "800", color: aReceber > 0 ? "#e53e3e" : "#38a169" }}>{fmt(aReceber)}</p>
-        </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: "14px", marginBottom: "14px" }}>
+        {statCard("Pedidos no período", String(pedidos.length))}
+        {statCard("Vendas no período", fmt(totalVendas))}
+        {statCard("Comissão efetiva", `${percentualEfetivo}%`, "#00C9A7")}
+        {statCard("Comissão gerada", fmt(totalComissao))}
       </div>
 
-      {/* Pedidos */}
+      {/* A receber — destaque */}
+      <div style={{
+        background: aReceber > 0 ? "#fff5f5" : "#f0fff4", border: `1px solid ${aReceber > 0 ? "#fed7d7" : "#c6f6d5"}`,
+        borderRadius: "12px", padding: "16px 20px", marginBottom: "24px", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "8px",
+      }}>
+        <span style={{ fontSize: "13px", fontWeight: "600", color: "#666" }}>A receber no período</span>
+        <span style={{ fontSize: "24px", fontWeight: "800", color: aReceber > 0 ? "#e53e3e" : "#38a169" }}>{fmt(aReceber)}</span>
+      </div>
+
+      {/* Vendas */}
       <div style={{ background: "#fff", borderRadius: "12px", boxShadow: "0 1px 3px rgba(0,0,0,0.08)", overflow: "hidden", marginBottom: "24px" }}>
-        <div style={{ padding: "18px 24px", borderBottom: "1px solid #eee", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <h2 style={{ margin: 0, fontSize: "15px", fontWeight: "700" }}>
-            Pedidos
-            <span style={{ marginLeft: "8px", fontSize: "13px", color: "#aaa", fontWeight: "400" }}>({pedidos.length}{truncated ? "+" : ""})</span>
+        <div style={{ padding: "18px 24px", borderBottom: "1px solid #eee", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "10px" }}>
+          <h2 style={{ margin: 0, fontSize: "15px", fontWeight: "700", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+            Vendas
+            <span style={{ marginLeft: "8px", fontSize: "13px", color: "#aaa", fontWeight: "400", textTransform: "none", letterSpacing: 0 }}>({pedidos.length}{truncated ? "+" : ""})</span>
           </h2>
           {pedidos.length > 0 && (
             <button type="button" onClick={exportarCSV} style={{ padding: "5px 12px", border: "1px solid #ddd", borderRadius: "6px", background: "#fff", fontSize: "12px", fontWeight: "600", color: "#555", cursor: "pointer" }}>
@@ -178,6 +192,35 @@ export default function AfiliadaDashboard() {
             </button>
           )}
         </div>
+
+        {/* Busca + filtro de período, numa linha só */}
+        <div style={{ padding: "16px 24px", borderBottom: "1px solid #f0f0f0", background: "#fafafa" }}>
+          <div style={{ marginBottom: "10px" }}>
+            <input
+              type="text"
+              placeholder="Buscar por número do pedido..."
+              value={busca}
+              onChange={(e) => { setBusca(e.target.value); setPagina(1); }}
+              style={{ width: "100%", boxSizing: "border-box", padding: "9px 14px", border: "1px solid #ddd", borderRadius: "8px", fontSize: "14px" }}
+            />
+          </div>
+          <Form method="get" style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
+            <input type="date" name="de" defaultValue={de} style={dateInput} />
+            <span style={{ color: "#aaa", fontSize: "13px" }}>até</span>
+            <input type="date" name="ate" defaultValue={ate} style={dateInput} />
+            <button type="submit" style={{ padding: "8px 18px", background: "#00C9A7", color: "#fff", border: "none", borderRadius: "8px", fontWeight: "700", fontSize: "13px", cursor: "pointer" }}>
+              Aplicar
+            </button>
+            <a href="?" style={{ padding: "8px 18px", background: "#fff", color: "#666", border: "1px solid #ddd", borderRadius: "8px", fontWeight: "700", fontSize: "13px", textDecoration: "none" }}>
+              Limpar
+            </a>
+            <div style={{ display: "flex", gap: "6px" }}>
+              {atalho("Este mês", primeiroDiaMes(mesAtual()), hojeStr())}
+              {atalho("Mês passado", primeiroDiaMes(mesAnterior()), ultimoDiaMes(mesAnterior()))}
+            </div>
+          </Form>
+        </div>
+
         {truncated && (
           <div style={{ padding: "8px 24px", background: "#fffbeb", borderBottom: "1px solid #fef3c7", fontSize: "12px", color: "#92400e" }}>
             Exibindo os 100 pedidos mais recentes. Ajuste o período para ver registros específicos.
@@ -186,28 +229,75 @@ export default function AfiliadaDashboard() {
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr style={{ background: "#f9f9f9", borderBottom: "1px solid #eee" }}>
-              {["Pedido", "Venda", "Comissão", "Data"].map((h) => <th key={h} style={th}>{h}</th>)}
+              {["Pedido/Data", "Status", "Venda/Comissão"].map((h) => <th key={h} style={th}>{h}</th>)}
             </tr>
           </thead>
           <tbody>
-            {pedidos.length === 0 && (
-              <tr><td colSpan={4} style={{ ...td, textAlign: "center", color: "#999" }}>Nenhum pedido neste período</td></tr>
+            {pedidosPagina.length === 0 && (
+              <tr><td colSpan={3} style={{ ...td, textAlign: "center", color: "#999" }}>Nenhum pedido encontrado</td></tr>
             )}
-            {pedidos.map((p) => (
+            {pedidosPagina.map((p) => (
               <tr key={p.shopify_order_id} style={{ borderBottom: "1px solid #f5f5f5", opacity: p.cancelado ? 0.5 : 1 }}>
-                <td style={{ ...td, fontWeight: "600" }}>
-                  #{p.shopify_order_id}
-                  {p.cancelado && <span style={{ marginLeft: "6px", background: "#fee2e2", color: "#e53e3e", padding: "1px 6px", borderRadius: "4px", fontSize: "10px", fontWeight: "700" }}>CANCELADO</span>}
+                <td style={td}>
+                  <div style={{ fontWeight: "600" }}>#{p.shopify_order_id}</div>
+                  <div style={{ fontSize: "12px", color: "#999", marginTop: "2px" }}>{fmtDateTime(p.criado_em)}</div>
                 </td>
-                <td style={{ ...td, color: "#666" }}>{fmt(p.valor_total)}</td>
-                <td style={{ ...td, fontWeight: "700", color: p.cancelado ? "#ccc" : "#00C9A7" }}>
-                  {p.cancelado ? <s>{fmt(p.comissao)}</s> : fmt(p.comissao)}
+                <td style={td}>
+                  <span style={{
+                    padding: "3px 10px", borderRadius: "999px", fontSize: "11px", fontWeight: "700",
+                    background: p.cancelado ? "#fee2e2" : "#f0fff4",
+                    color: p.cancelado ? "#e53e3e" : "#38a169",
+                    border: `1px solid ${p.cancelado ? "#fecaca" : "#c6f6d5"}`,
+                  }}>
+                    {p.cancelado ? "Cancelado" : "Pago"}
+                  </span>
                 </td>
-                <td style={{ ...td, color: "#888", fontSize: "13px" }}>{fmtDate(p.criado_em)}</td>
+                <td style={td}>
+                  <div style={{ color: "#666" }}>{fmt(p.valor_total)}</div>
+                  <div style={{ fontWeight: "700", color: p.cancelado ? "#ccc" : "#00C9A7", marginTop: "2px" }}>
+                    {p.cancelado ? <s>{fmt(p.comissao)}</s> : fmt(p.comissao)}
+                  </div>
+                </td>
               </tr>
             ))}
           </tbody>
         </table>
+
+        {/* Paginação */}
+        {pedidosFiltrados.length > 0 && (
+          <div style={{ padding: "12px 24px", borderTop: "1px solid #eee", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "10px" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "12px", color: "#888" }}>
+              Mostrando
+              <select
+                value={porPagina}
+                onChange={(e) => { setPorPagina(Number(e.target.value)); setPagina(1); }}
+                style={{ padding: "4px 8px", border: "1px solid #ddd", borderRadius: "6px", fontSize: "12px" }}
+              >
+                {paginaOpcoes.map((n) => <option key={n} value={n}>{n}</option>)}
+              </select>
+              por página
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: "10px", fontSize: "12px", color: "#888" }}>
+              <button
+                type="button"
+                onClick={() => setPagina((p) => Math.max(1, p - 1))}
+                disabled={paginaAtual === 1}
+                style={{ padding: "5px 10px", border: "1px solid #ddd", borderRadius: "6px", background: "#fff", cursor: paginaAtual === 1 ? "not-allowed" : "pointer", opacity: paginaAtual === 1 ? 0.5 : 1 }}
+              >
+                ←
+              </button>
+              Página {paginaAtual} de {totalPaginas}
+              <button
+                type="button"
+                onClick={() => setPagina((p) => Math.min(totalPaginas, p + 1))}
+                disabled={paginaAtual === totalPaginas}
+                style={{ padding: "5px 10px", border: "1px solid #ddd", borderRadius: "6px", background: "#fff", cursor: paginaAtual === totalPaginas ? "not-allowed" : "pointer", opacity: paginaAtual === totalPaginas ? 0.5 : 1 }}
+              >
+                →
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Pagamentos */}
