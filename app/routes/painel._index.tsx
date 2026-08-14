@@ -6,9 +6,17 @@ import { mesAtual } from "../lib/comissao";
 
 const round2 = (v: number) => Math.round(v * 100) / 100;
 
+function deslocarMes(mes: string, delta: number): string {
+  const [ano, num] = mes.split("-").map(Number);
+  const d = new Date(ano, num - 1 + delta, 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   await requireAuth(request);
-  const mes = mesAtual();
+  const url = new URL(request.url);
+  const mesParam = url.searchParams.get("mes");
+  const mes = mesParam && /^\d{4}-\d{2}$/.test(mesParam) ? mesParam : mesAtual();
 
   // ── Afiliadas ──────────────────────────────────────────────────────────────
   const { data: afiliadas } = await supabase
@@ -65,22 +73,48 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const deverDesigners = round2(resumoDesigners.reduce((s, d) => s + d.aReceber, 0));
   const totalDever = round2(deverAfiliadas + deverDesigners);
 
-  return { resumo, resumoDesigners, deverAfiliadas, deverDesigners, totalDever, mes };
+  return {
+    resumo, resumoDesigners, deverAfiliadas, deverDesigners, totalDever, mes,
+    mesAnterior: deslocarMes(mes, -1),
+    mesSeguinte: deslocarMes(mes, 1),
+    ehMesAtual: mes === mesAtual(),
+  };
 };
 
 const th: React.CSSProperties = { padding: "10px 16px", textAlign: "left", fontSize: "12px", fontWeight: "700", color: "#666", textTransform: "uppercase", letterSpacing: "0.5px" };
 const td: React.CSSProperties = { padding: "14px 16px" };
 
 export default function PainelIndex() {
-  const { resumo, resumoDesigners, deverAfiliadas, deverDesigners, totalDever, mes } = useLoaderData<typeof loader>();
+  const { resumo, resumoDesigners, deverAfiliadas, deverDesigners, totalDever, mes, mesAnterior, mesSeguinte, ehMesAtual } = useLoaderData<typeof loader>();
   const [ano, mesNum] = mes.split("-");
   const mesLabel = new Date(Number(ano), Number(mesNum) - 1).toLocaleString("pt-BR", { month: "long", year: "numeric" });
   const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
   return (
     <>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "24px" }}>
-        <h1 style={{ margin: 0, fontSize: "22px", fontWeight: "700", textTransform: "capitalize" }}>Dashboard — {mesLabel}</h1>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "24px", flexWrap: "wrap", gap: "12px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+          <Link
+            to={`/painel?mes=${mesAnterior}`}
+            style={{ width: "32px", height: "32px", display: "flex", alignItems: "center", justifyContent: "center", border: "1px solid #ddd", borderRadius: "8px", color: "#555", textDecoration: "none", fontSize: "14px", background: "#fff" }}
+          >
+            ←
+          </Link>
+          <h1 style={{ margin: 0, fontSize: "22px", fontWeight: "700", textTransform: "capitalize" }}>Dashboard — {mesLabel}</h1>
+          {!ehMesAtual && (
+            <Link
+              to={`/painel?mes=${mesSeguinte}`}
+              style={{ width: "32px", height: "32px", display: "flex", alignItems: "center", justifyContent: "center", border: "1px solid #ddd", borderRadius: "8px", color: "#555", textDecoration: "none", fontSize: "14px", background: "#fff" }}
+            >
+              →
+            </Link>
+          )}
+          {!ehMesAtual && (
+            <Link to="/painel" style={{ fontSize: "13px", color: "#00C9A7", textDecoration: "none", fontWeight: "600" }}>
+              Voltar ao mês atual
+            </Link>
+          )}
+        </div>
         <div style={{ display: "flex", gap: "10px" }}>
           <Link to="/painel/influencers" style={{ background: "#111", color: "#fff", padding: "10px 18px", borderRadius: "8px", textDecoration: "none", fontWeight: "600", fontSize: "14px" }}>
             + Influencer
@@ -93,7 +127,7 @@ export default function PainelIndex() {
 
       {/* Total combinado a pagar */}
       <div style={{ background: "#fff", borderRadius: "12px", padding: "24px", marginBottom: "24px", boxShadow: "0 1px 3px rgba(0,0,0,0.08)" }}>
-        <p style={{ margin: "0 0 4px", fontSize: "12px", color: "#888", fontWeight: "700", textTransform: "uppercase", letterSpacing: "0.5px" }}>Total a pagar este mês</p>
+        <p style={{ margin: "0 0 4px", fontSize: "12px", color: "#888", fontWeight: "700", textTransform: "uppercase", letterSpacing: "0.5px" }}>Total a pagar {ehMesAtual ? "este mês" : "nesse mês"}</p>
         <p style={{ margin: "0 0 8px", fontSize: "38px", fontWeight: "800", color: totalDever > 0 ? "#e53e3e" : "#111" }}>{fmt(totalDever)}</p>
         <div style={{ display: "flex", gap: "20px", fontSize: "13px", color: "#666" }}>
           <span>Influencers: <strong style={{ color: "#444" }}>{fmt(deverAfiliadas)}</strong></span>
