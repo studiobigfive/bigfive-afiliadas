@@ -95,15 +95,10 @@ const th: React.CSSProperties = { padding: "10px 8px", textAlign: "left", fontSi
 const td: React.CSSProperties = { padding: "14px 8px", fontSize: "14px" };
 const dateInput: React.CSSProperties = { padding: "7px 10px", border: "1px solid #ddd", borderRadius: "8px", fontSize: "14px", background: "#fff" };
 
-function fmtMes(yyyymm: string) {
-  const [a, m] = yyyymm.split("-");
-  return new Date(Number(a), Number(m) - 1).toLocaleString("pt-BR", { month: "long", year: "numeric" });
-}
-
 const paginaOpcoes = [5, 10, 25, 50];
 
 export default function AfiliadaDashboard() {
-  const { afiliada, pedidos, pagamentos, totalComissao, aReceber, de, ate, truncated } = useLoaderData<typeof loader>();
+  const { afiliada, pedidos, totalComissao, aReceber, de, ate, truncated } = useLoaderData<typeof loader>();
   const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
   const fmtDate = (d: string) => new Date(d).toLocaleDateString("pt-BR");
   const fmtDateTime = (d: string) => new Date(d).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
@@ -310,35 +305,6 @@ export default function AfiliadaDashboard() {
             </div>
           </div>
         )}
-      </div>
-
-      {/* Pagamentos */}
-      <div style={{ background: "#fff", borderRadius: "12px", boxShadow: "0 1px 3px rgba(0,0,0,0.08)", overflow: "hidden" }}>
-        <div style={{ padding: "18px 24px", borderBottom: "1px solid #eee" }}>
-          <h2 style={{ margin: 0, fontSize: "15px", fontWeight: "700" }}>Pagamentos recebidos</h2>
-        </div>
-        <div style={{ overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
-            <thead>
-              <tr style={{ background: "#f9f9f9", borderBottom: "1px solid #eee" }}>
-                {["Data", "Mês ref.", "Valor", "Observação"].map((h) => <th key={h} style={th}>{h}</th>)}
-              </tr>
-            </thead>
-            <tbody>
-              {pagamentos.length === 0 && (
-                <tr><td colSpan={4} style={{ ...td, textAlign: "center", color: "#999" }}>Nenhum pagamento neste período</td></tr>
-              )}
-              {pagamentos.map((p, i) => (
-                <tr key={i} style={{ borderBottom: "1px solid #f5f5f5" }}>
-                  <td style={{ ...td, color: "#666" }}>{fmtDate(p.pago_em)}</td>
-                  <td style={{ ...td, color: "#888", fontSize: "13px", textTransform: "capitalize" }}>{fmtMes(p.mes_referencia)}</td>
-                  <td style={{ ...td, fontWeight: "700", color: "#38a169" }}>{fmt(p.valor)}</td>
-                  <td style={{ ...td, color: "#888", fontSize: "13px" }}>{p.observacao || "—"}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
       </div>
     </>
   );

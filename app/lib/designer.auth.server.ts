@@ -170,6 +170,23 @@ export async function getPendingEmailDesigner(request: Request): Promise<string 
   return session.get("email_mascarado") ?? null;
 }
 
+// Conta fixa do admin pra visualizar o portal como designer, sem afetar dados reais de parceiros
+const PREVIEW_EMAIL = "preview@bigfive.local";
+
+export async function criarSessaoDesignerPreview(): Promise<string> {
+  const { data: designer } = await supabase.from("designers").select("id").ilike("email", PREVIEW_EMAIL).single();
+  if (!designer) throw new Error("Conta de visualização (designer) não encontrada");
+
+  const authSession = await authStorage.getSession();
+  authSession.set("designer_id", designer.id);
+  return authStorage.commitSession(authSession);
+}
+
+export async function temSessaoDesigner(request: Request): Promise<boolean> {
+  const session = await authStorage.getSession(request.headers.get("Cookie"));
+  return !!session.get("designer_id");
+}
+
 function mascararEmail(email: string): string {
   const [user, domain] = email.split("@");
   const visivel = user.slice(0, 2);

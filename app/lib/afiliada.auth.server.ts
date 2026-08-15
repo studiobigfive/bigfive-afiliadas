@@ -174,6 +174,23 @@ export async function getPendingEmail(request: Request): Promise<string | null> 
   return session.get("email_mascarado") ?? null;
 }
 
+// Conta fixa do admin pra visualizar o portal como influencer, sem afetar dados reais de parceiras
+const PREVIEW_CUPOM = "MEUTESTE";
+
+export async function criarSessaoAfiliadaPreview(): Promise<string> {
+  const { data: afiliada } = await supabase.from("afiliadas").select("id").eq("cupom", PREVIEW_CUPOM).single();
+  if (!afiliada) throw new Error("Conta de visualização (influencer) não encontrada");
+
+  const authSession = await authStorage.getSession();
+  authSession.set("afiliada_id", afiliada.id);
+  return authStorage.commitSession(authSession);
+}
+
+export async function temSessaoAfiliada(request: Request): Promise<boolean> {
+  const session = await authStorage.getSession(request.headers.get("Cookie"));
+  return !!session.get("afiliada_id");
+}
+
 function mascararEmail(email: string): string {
   const [user, domain] = email.split("@");
   const visivel = user.slice(0, 2);

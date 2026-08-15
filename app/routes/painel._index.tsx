@@ -119,6 +119,9 @@ export default function PainelIndex() {
           <Link to="/painel/visualizacao" style={{ background: "#fff", color: "#555", padding: "10px 18px", borderRadius: "8px", textDecoration: "none", fontWeight: "600", fontSize: "14px", border: "1px solid #ddd" }}>
             👁 Visualização do parceiro
           </Link>
+          <Link to="/preview/login" style={{ background: "#fff", color: "#555", padding: "10px 18px", borderRadius: "8px", textDecoration: "none", fontWeight: "600", fontSize: "14px", border: "1px solid #ddd" }}>
+            🧪 Minha visualização
+          </Link>
           <Link to="/painel/influencers" style={{ background: "#111", color: "#fff", padding: "10px 18px", borderRadius: "8px", textDecoration: "none", fontWeight: "600", fontSize: "14px" }}>
             + Influencer
           </Link>
