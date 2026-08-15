@@ -231,7 +231,7 @@ export default function VisualizacaoParceiro() {
                   ))}
                   {!mesSelecionado && <option value="">Personalizado</option>}
                 </select>
-                <span style={{ color: "#ccc", fontSize: "13px" }}>|</span>
+                <div style={{ width: "1px", height: "24px", background: "#e5e5e5", margin: "0 6px" }} />
                 <input type="date" name="de" defaultValue={de} style={dateInput} />
                 <span style={{ color: "#aaa", fontSize: "13px" }}>até</span>
                 <input type="date" name="ate" defaultValue={ate} style={dateInput} />

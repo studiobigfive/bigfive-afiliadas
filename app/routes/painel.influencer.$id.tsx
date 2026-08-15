@@ -270,7 +270,8 @@ export default function PainelAfiliadaDetalhe() {
 
       {/* Filtro de período */}
       <div style={{ background: "#fff", borderRadius: "12px", padding: "16px 20px", boxShadow: "0 1px 3px rgba(0,0,0,0.08)", marginBottom: "24px" }}>
-        <Form method="get" style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
+        <Form method="get" style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
+          <span style={{ fontSize: "13px", fontWeight: "600", color: "#666" }}>Mês:</span>
           <select
             value={mesSelecionado}
             onChange={(e) => {
@@ -284,6 +285,9 @@ export default function PainelAfiliadaDetalhe() {
             ))}
             {!mesSelecionado && <option value="">Personalizado</option>}
           </select>
+
+          <div style={{ width: "1px", height: "24px", background: "#e5e5e5", margin: "0 6px" }} />
+
           <span style={{ fontSize: "13px", fontWeight: "600", color: "#666" }}>Período:</span>
           <input type="date" name="de" defaultValue={de} style={dateInput} />
           <span style={{ color: "#aaa", fontSize: "13px" }}>até</span>

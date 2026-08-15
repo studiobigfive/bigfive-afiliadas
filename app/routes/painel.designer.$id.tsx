@@ -378,6 +378,7 @@ export default function PainelDesignerDetalhe() {
       {/* Filtro de período */}
       <div style={{ ...card, padding: "14px 20px", marginBottom: "20px" }}>
         <Form method="get" style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
+          <span style={{ fontSize: "13px", fontWeight: "600", color: "#666" }}>Mês:</span>
           <select
             value={mesSelecionado}
             onChange={(e) => {
@@ -391,6 +392,9 @@ export default function PainelDesignerDetalhe() {
             ))}
             {!mesSelecionado && <option value="">Personalizado</option>}
           </select>
+
+          <div style={{ width: "1px", height: "24px", background: "#e5e5e5", margin: "0 6px" }} />
+
           <span style={{ fontSize: "13px", fontWeight: "600", color: "#666" }}>Período:</span>
           <input type="date" name="de" defaultValue={de} style={dateInput} />
           <span style={{ color: "#aaa", fontSize: "13px" }}>até</span>
