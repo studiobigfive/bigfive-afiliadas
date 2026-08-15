@@ -32,6 +32,7 @@ export default function Painel() {
         @media (max-width: 480px) {
           .bf-admin-header { padding: 0 16px !important; gap: 20px !important; }
           .bf-admin-main { padding: 20px 14px !important; }
+          .bf-divider { width: 100% !important; height: 1px !important; margin: 4px 0 !important; }
         }
       `}</style>
       <header

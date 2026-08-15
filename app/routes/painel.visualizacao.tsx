@@ -160,8 +160,8 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   };
 };
 
-const th: React.CSSProperties = { padding: "10px 16px", textAlign: "left", fontSize: "12px", fontWeight: "700", color: "#666", textTransform: "uppercase", letterSpacing: "0.5px" };
-const td: React.CSSProperties = { padding: "14px 16px", fontSize: "14px" };
+const th: React.CSSProperties = { padding: "10px 8px", textAlign: "left", fontSize: "12px", fontWeight: "700", color: "#666", textTransform: "uppercase", letterSpacing: "0.5px" };
+const td: React.CSSProperties = { padding: "14px 8px", fontSize: "14px" };
 const dateInput: React.CSSProperties = { padding: "7px 10px", border: "1px solid #ddd", borderRadius: "8px", fontSize: "14px", background: "#fff" };
 
 function fmtMes(yyyymm: string) {
@@ -226,7 +226,7 @@ export default function VisualizacaoParceiro() {
           <Link to="/painel/visualizacao?tipo=influencer" style={tabStyle(tipo === "influencer")}>Influencer</Link>
           <Link to="/painel/visualizacao?tipo=designer" style={tabStyle(tipo === "designer")}>Designer</Link>
         </div>
-        <div style={{ width: "1px", height: "24px", background: "#e5e5e5" }} />
+        <div className="bf-divider" style={{ width: "1px", height: "24px", background: "#e5e5e5" }} />
         <Form method="get" style={{ display: "flex", alignItems: "center", gap: "10px" }}>
           <input type="hidden" name="tipo" value={tipo} />
           <select name="id" defaultValue={idSelecionado} style={{ ...dateInput, minWidth: "220px", cursor: "pointer" }} onChange={(e) => e.currentTarget.form?.submit()}>
@@ -300,7 +300,7 @@ export default function VisualizacaoParceiro() {
                   ))}
                   {!mesSelecionado && <option value="">Personalizado</option>}
                 </select>
-                <div style={{ width: "1px", height: "24px", background: "#e5e5e5", margin: "0 6px" }} />
+                <div className="bf-divider" style={{ width: "1px", height: "24px", background: "#e5e5e5", margin: "0 6px" }} />
                 <input type="date" name="de" defaultValue={de} style={dateInput} />
                 <span style={{ color: "#aaa", fontSize: "13px" }}>até</span>
                 <input type="date" name="ate" defaultValue={ate} style={dateInput} />
@@ -316,7 +316,7 @@ export default function VisualizacaoParceiro() {
               </div>
             )}
             <div style={{ overflowX: "auto" }}>
-              <table style={{ width: "100%", minWidth: "420px", borderCollapse: "collapse" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse" }}>
                 <thead>
                   <tr style={{ background: "#f9f9f9", borderBottom: "1px solid #eee" }}>
                     {[tipo === "designer" ? "Pedido/Produto" : "Pedido/Data", "Status", "Venda/Comissão"].map((h) => <th key={h} style={th}>{h}</th>)}
@@ -399,7 +399,7 @@ export default function VisualizacaoParceiro() {
               <h2 style={{ margin: 0, fontSize: "15px", fontWeight: "700" }}>Pagamentos registrados</h2>
             </div>
             <div style={{ overflowX: "auto" }}>
-              <table style={{ width: "100%", minWidth: "420px", borderCollapse: "collapse" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse" }}>
                 <thead>
                   <tr style={{ background: "#f9f9f9", borderBottom: "1px solid #eee" }}>
                     {["Data", "Mês ref.", "Valor", "Observação"].map((h) => <th key={h} style={th}>{h}</th>)}

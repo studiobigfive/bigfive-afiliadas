@@ -91,8 +91,8 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   return { afiliada, pedidos: pedidosFiltrados, pagamentos: pagamentosFiltrados, totalComissao, aReceber, de, ate, truncated: pedidosFiltrados.length === 100 };
 };
 
-const th: React.CSSProperties = { padding: "10px 16px", textAlign: "left", fontSize: "12px", fontWeight: "700", color: "#666", textTransform: "uppercase", letterSpacing: "0.5px" };
-const td: React.CSSProperties = { padding: "14px 16px", fontSize: "14px" };
+const th: React.CSSProperties = { padding: "10px 8px", textAlign: "left", fontSize: "12px", fontWeight: "700", color: "#666", textTransform: "uppercase", letterSpacing: "0.5px" };
+const td: React.CSSProperties = { padding: "14px 8px", fontSize: "14px" };
 const dateInput: React.CSSProperties = { padding: "7px 10px", border: "1px solid #ddd", borderRadius: "8px", fontSize: "14px", background: "#fff" };
 
 function fmtMes(yyyymm: string) {
@@ -234,7 +234,7 @@ export default function AfiliadaDashboard() {
           </div>
         )}
         <div style={{ overflowX: "auto" }}>
-          <table style={{ width: "100%", minWidth: "420px", borderCollapse: "collapse" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
               <tr style={{ background: "#f9f9f9", borderBottom: "1px solid #eee" }}>
                 {["Pedido/Data", "Status", "Venda/Comissão"].map((h) => <th key={h} style={th}>{h}</th>)}
@@ -315,7 +315,7 @@ export default function AfiliadaDashboard() {
           <h2 style={{ margin: 0, fontSize: "15px", fontWeight: "700" }}>Pagamentos recebidos</h2>
         </div>
         <div style={{ overflowX: "auto" }}>
-          <table style={{ width: "100%", minWidth: "420px", borderCollapse: "collapse" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
               <tr style={{ background: "#f9f9f9", borderBottom: "1px solid #eee" }}>
                 {["Data", "Mês ref.", "Valor", "Observação"].map((h) => <th key={h} style={th}>{h}</th>)}

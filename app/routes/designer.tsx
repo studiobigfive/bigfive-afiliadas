@@ -19,7 +19,7 @@ export default function DesignerLayout() {
           .bf-header { padding: 0 16px !important; }
           .bf-header-label { display: none !important; }
           .bf-main { padding: 20px 14px !important; }
-          .bf-divider { display: none !important; }
+          .bf-divider { width: 100% !important; height: 1px !important; margin: 4px 0 !important; }
         }
       `}</style>
       <header className="bf-header" style={{ background: "#111", padding: "0 32px", display: "flex", alignItems: "center", justifyContent: "space-between", height: "56px" }}>
