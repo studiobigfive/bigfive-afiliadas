@@ -68,6 +68,7 @@ export default function PainelDesigners() {
   const erro = fetcher.data?.erro;
   const sucesso = fetcher.data?.sucesso;
   const [formKey, setFormKey] = useState(0);
+  const [menuAberto, setMenuAberto] = useState<string | null>(null);
 
   useEffect(() => {
     if (sucesso) setFormKey(k => k + 1);
@@ -187,39 +188,69 @@ export default function PainelDesigners() {
                 )}
               </div>
             </div>
-            <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
+            <div style={{ display: "flex", gap: "14px", alignItems: "center", position: "relative" }}>
               <Link to={`/painel/designer/${d.id}`} style={{ color: "#00C9A7", textDecoration: "none", fontWeight: "600", fontSize: "14px" }}>
-                Ver detalhes
+                Ver
               </Link>
-              <fetcher.Form method="post">
-                <input type="hidden" name="intent" value="toggle" />
-                <input type="hidden" name="id" value={d.id} />
-                <input type="hidden" name="ativo" value={String(d.ativo)} />
-                <button
-                  type="submit"
-                  style={{
-                    padding: "6px 14px", border: "1px solid", cursor: "pointer",
-                    borderColor: d.ativo ? "#e53e3e" : "#38a169",
-                    color: d.ativo ? "#e53e3e" : "#38a169",
-                    background: "transparent", borderRadius: "6px", fontSize: "13px", fontWeight: "600",
-                  }}
-                >
-                  {d.ativo ? "Desativar" : "Ativar"}
-                </button>
-              </fetcher.Form>
-              <fetcher.Form
-                method="post"
-                onSubmit={(e) => { if (!window.confirm(`Excluir "${d.nome}"? Isso remove todos os dados vinculados.`)) e.preventDefault(); }}
+              <button
+                type="button"
+                onClick={() => setMenuAberto(menuAberto === d.id ? null : d.id)}
+                style={{ padding: "4px 8px", border: "1px solid #ddd", borderRadius: "6px", background: "#fff", color: "#666", cursor: "pointer", fontSize: "14px", fontWeight: "700", lineHeight: 1 }}
               >
-                <input type="hidden" name="intent" value="excluir" />
-                <input type="hidden" name="id" value={d.id} />
-                <button
-                  type="submit"
-                  style={{ padding: "6px 10px", border: "1px solid #ddd", color: "#aaa", background: "transparent", borderRadius: "6px", fontSize: "13px", cursor: "pointer" }}
-                >
-                  ✕
-                </button>
-              </fetcher.Form>
+                •••
+              </button>
+
+              {menuAberto === d.id && (
+                <>
+                  <div style={{ position: "fixed", inset: 0, zIndex: 10 }} onClick={() => setMenuAberto(null)} />
+                  <div style={{
+                    position: "absolute", right: 0, top: "calc(100% + 4px)", background: "#fff",
+                    border: "1px solid #eee", borderRadius: "8px", boxShadow: "0 4px 16px rgba(0,0,0,0.12)",
+                    zIndex: 20, minWidth: "160px", overflow: "hidden",
+                  }}>
+                    <Link
+                      to={`/painel/designer/${d.id}?editar=1`}
+                      onClick={() => setMenuAberto(null)}
+                      style={{ display: "block", padding: "10px 14px", fontSize: "13px", color: "#333", textDecoration: "none", fontWeight: "600" }}
+                    >
+                      ✎ Editar
+                    </Link>
+                    <fetcher.Form
+                      method="post"
+                      onSubmit={(e) => {
+                        setMenuAberto(null);
+                        if (d.ativo && !window.confirm(`Desativar "${d.nome}"? Ele(a) para de contar em novas vendas até reativar.`)) e.preventDefault();
+                      }}
+                    >
+                      <input type="hidden" name="intent" value="toggle" />
+                      <input type="hidden" name="id" value={d.id} />
+                      <input type="hidden" name="ativo" value={String(d.ativo)} />
+                      <button
+                        type="submit"
+                        style={{ display: "block", width: "100%", textAlign: "left", padding: "10px 14px", fontSize: "13px", color: d.ativo ? "#e53e3e" : "#38a169", background: "none", border: "none", borderTop: "1px solid #f5f5f5", cursor: "pointer", fontWeight: "600" }}
+                      >
+                        {d.ativo ? "⏸ Desativar" : "▶ Ativar"}
+                      </button>
+                    </fetcher.Form>
+                    <fetcher.Form
+                      method="post"
+                      onSubmit={(e) => {
+                        setMenuAberto(null);
+                        if (!window.confirm(`Excluir "${d.nome}"? Isso remove todos os dados vinculados.`)) e.preventDefault();
+                      }}
+                    >
+                      <input type="hidden" name="intent" value="excluir" />
+                      <input type="hidden" name="id" value={d.id} />
+                      <button
+                        type="submit"
+                        style={{ display: "block", width: "100%", textAlign: "left", padding: "10px 14px", fontSize: "13px", color: "#e53e3e", background: "none", border: "none", borderTop: "1px solid #f5f5f5", cursor: "pointer", fontWeight: "600" }}
+                      >
+                        ✕ Excluir
+                      </button>
+                    </fetcher.Form>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         ))}

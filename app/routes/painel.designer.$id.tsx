@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import type { LoaderFunctionArgs, ActionFunctionArgs } from "react-router";
-import { useLoaderData, Link, Form, useFetcher } from "react-router";
+import { useLoaderData, Link, Form, useFetcher, useSearchParams } from "react-router";
 import { requireAuth } from "../lib/painel.auth.server";
 import { supabase } from "../lib/supabase.server";
 import { backfillProdutoDesigner } from "../lib/backfill.server";
@@ -278,8 +278,9 @@ export default function PainelDesignerDetalhe() {
     vendasRecuperadas?: number;
   }>();
   const buscaFetcher = useFetcher<{ produtos: Array<{ id: string; title: string; image: string | null }>; erro?: string | null }>();
+  const [searchParams] = useSearchParams();
   const [confirmado, setConfirmado] = useState(false);
-  const [editando, setEditando] = useState(false);
+  const [editando, setEditando] = useState(searchParams.get("editar") === "1");
   const [query, setQuery] = useState("");
   const [comprovante, setComprovante] = useState<string | null>(null);
   const [copiado, setCopiado] = useState(false);

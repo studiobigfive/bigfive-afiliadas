@@ -95,6 +95,7 @@ export default function PainelAfiliadas() {
   const fetcher = useFetcher<{ erro?: string; sucesso?: boolean; vendasRecuperadas?: number }>();
   const criando = fetcher.state !== "idle";
   const [tipoCupom, setTipoCupom] = useState<"existente" | "novo">("existente");
+  const [menuAberto, setMenuAberto] = useState<string | null>(null);
 
   const erro = fetcher.data?.erro;
   const sucesso = fetcher.data?.sucesso;
@@ -243,26 +244,67 @@ export default function PainelAfiliadas() {
               <span style={{ background: "#111", color: "#fff", padding: "2px 8px", borderRadius: "4px", fontSize: "11px", fontWeight: "700", letterSpacing: "1px" }}>{a.cupom}</span>
               {!a.ativo &&<span style={{ marginLeft: "6px", background: "#fee2e2", color: "#e53e3e", padding: "2px 8px", borderRadius: "4px", fontSize: "11px", fontWeight: "700" }}>INATIVA</span>}
             </div>
-            <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
+            <div style={{ display: "flex", gap: "14px", alignItems: "center", position: "relative" }}>
               <Link to={`/painel/influencer/${a.id}`} style={{ color: "#00C9A7", textDecoration: "none", fontWeight: "600", fontSize: "14px" }}>Ver</Link>
-              <fetcher.Form method="post">
-                <input type="hidden" name="intent" value="toggle" />
-                <input type="hidden" name="id" value={a.id} />
-                <input type="hidden" name="ativo" value={String(a.ativo)} />
-                <button type="submit" style={{ padding: "6px 14px", border: "1px solid", borderColor: a.ativo ? "#e53e3e" : "#38a169", color: a.ativo ? "#e53e3e" : "#38a169", background: "transparent", borderRadius: "6px", cursor: "pointer", fontSize: "13px", fontWeight: "600" }}>
-                  {a.ativo ? "Desativar" : "Ativar"}
-                </button>
-              </fetcher.Form>
-              <fetcher.Form
-                method="post"
-                onSubmit={(e) => { if (!window.confirm(`Excluir "${a.nome}"? Isso remove todos os dados vinculados.`)) e.preventDefault(); }}
+              <button
+                type="button"
+                onClick={() => setMenuAberto(menuAberto === a.id ? null : a.id)}
+                style={{ padding: "4px 8px", border: "1px solid #ddd", borderRadius: "6px", background: "#fff", color: "#666", cursor: "pointer", fontSize: "14px", fontWeight: "700", lineHeight: 1 }}
               >
-                <input type="hidden" name="intent" value="excluir" />
-                <input type="hidden" name="id" value={a.id} />
-                <button type="submit" style={{ padding: "6px 10px", border: "1px solid #ddd", color: "#aaa", background: "transparent", borderRadius: "6px", fontSize: "13px", cursor: "pointer" }}>
-                  ✕
-                </button>
-              </fetcher.Form>
+                •••
+              </button>
+
+              {menuAberto === a.id && (
+                <>
+                  <div style={{ position: "fixed", inset: 0, zIndex: 10 }} onClick={() => setMenuAberto(null)} />
+                  <div style={{
+                    position: "absolute", right: 0, top: "calc(100% + 4px)", background: "#fff",
+                    border: "1px solid #eee", borderRadius: "8px", boxShadow: "0 4px 16px rgba(0,0,0,0.12)",
+                    zIndex: 20, minWidth: "160px", overflow: "hidden",
+                  }}>
+                    <Link
+                      to={`/painel/influencer/${a.id}?editar=1`}
+                      onClick={() => setMenuAberto(null)}
+                      style={{ display: "block", padding: "10px 14px", fontSize: "13px", color: "#333", textDecoration: "none", fontWeight: "600" }}
+                    >
+                      ✎ Editar
+                    </Link>
+                    <fetcher.Form
+                      method="post"
+                      onSubmit={(e) => {
+                        setMenuAberto(null);
+                        if (a.ativo && !window.confirm(`Desativar "${a.nome}"? Ela para de contar em novas vendas até reativar.`)) e.preventDefault();
+                      }}
+                    >
+                      <input type="hidden" name="intent" value="toggle" />
+                      <input type="hidden" name="id" value={a.id} />
+                      <input type="hidden" name="ativo" value={String(a.ativo)} />
+                      <button
+                        type="submit"
+                        style={{ display: "block", width: "100%", textAlign: "left", padding: "10px 14px", fontSize: "13px", color: a.ativo ? "#e53e3e" : "#38a169", background: "none", border: "none", borderTop: "1px solid #f5f5f5", cursor: "pointer", fontWeight: "600" }}
+                      >
+                        {a.ativo ? "⏸ Desativar" : "▶ Ativar"}
+                      </button>
+                    </fetcher.Form>
+                    <fetcher.Form
+                      method="post"
+                      onSubmit={(e) => {
+                        setMenuAberto(null);
+                        if (!window.confirm(`Excluir "${a.nome}"? Isso remove todos os dados vinculados.`)) e.preventDefault();
+                      }}
+                    >
+                      <input type="hidden" name="intent" value="excluir" />
+                      <input type="hidden" name="id" value={a.id} />
+                      <button
+                        type="submit"
+                        style={{ display: "block", width: "100%", textAlign: "left", padding: "10px 14px", fontSize: "13px", color: "#e53e3e", background: "none", border: "none", borderTop: "1px solid #f5f5f5", cursor: "pointer", fontWeight: "600" }}
+                      >
+                        ✕ Excluir
+                      </button>
+                    </fetcher.Form>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         ))}

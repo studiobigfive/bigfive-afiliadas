@@ -180,7 +180,7 @@ export default function PainelAfiliadaDetalhe() {
     mesPago?: string;
   }>();
   const [searchParams] = useSearchParams();
-  const [editando, setEditando] = useState(false);
+  const [editando, setEditando] = useState(searchParams.get("editar") === "1");
   const [confirmado, setConfirmado] = useState(false);
   const [comprovante, setComprovante] = useState<string | null>(null);
   const [copiado, setCopiado] = useState(false);
