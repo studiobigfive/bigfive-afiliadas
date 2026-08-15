@@ -86,6 +86,7 @@ export async function backfillInfluencer(afiliadaId: string, cupom: string, dias
 
     const { error } = await supabase.from("pedidos").insert({
       shopify_order_id: shopifyOrderId,
+      numero_pedido: pedido.name,
       afiliada_id: afiliadaId,
       valor_total: valorTotal,
       comissao,
@@ -152,6 +153,7 @@ export async function backfillProdutoDesigner(
     const comissao = round2(valorItem * (percentual / 100));
     const { error } = await supabase.from("pedidos_designer").insert({
       shopify_order_id: shopifyOrderId,
+      numero_pedido: pedido.name,
       designer_id: designerId,
       shopify_product_id: shopifyProductId,
       nome_produto: nomeProduto,

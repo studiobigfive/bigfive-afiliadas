@@ -15,15 +15,30 @@ function ultimoDiaMes(yyyymm: string) {
   const [a, m] = yyyymm.split("-").map(Number);
   return `${yyyymm}-${String(new Date(a, m, 0).getDate()).padStart(2, "0")}`;
 }
-function mesAnterior() {
-  const now = new Date();
-  const y = now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear();
-  const m = now.getMonth() === 0 ? 12 : now.getMonth();
-  return `${y}-${String(m).padStart(2, "0")}`;
+function deslocarMes(yyyymm: string, delta: number): string {
+  const [a, m] = yyyymm.split("-").map(Number);
+  const d = new Date(a, m - 1 + delta, 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 }
 function hojeStr() {
   const now = new Date();
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+}
+function labelMes(yyyymm: string) {
+  const [a, m] = yyyymm.split("-").map(Number);
+  return new Date(a, m - 1).toLocaleString("pt-BR", { month: "long", year: "numeric" });
+}
+function mesesRecentes() {
+  const atual = mesAtual();
+  return [0, -1, -2].map((delta) => {
+    const mes = deslocarMes(atual, delta);
+    return {
+      mes,
+      label: delta === 0 ? `${labelMes(mes)} (atual)` : labelMes(mes),
+      de: primeiroDiaMes(mes),
+      ate: delta === 0 ? hojeStr() : ultimoDiaMes(mes),
+    };
+  });
 }
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
@@ -46,7 +61,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
   const { data: pedidos } = await supabase
     .from("pedidos")
-    .select("shopify_order_id, mes_referencia, valor_total, comissao, criado_em, cancelado")
+    .select("shopify_order_id, numero_pedido, mes_referencia, valor_total, comissao, criado_em, cancelado")
     .eq("afiliada_id", afiliadaId)
     .gte("criado_em", `${de}T00:00:00`)
     .lte("criado_em", `${ate}T23:59:59`)
@@ -111,7 +126,10 @@ export default function VisualizacaoParceiro() {
   const [pagina, setPagina] = useState(1);
 
   const pedidosFiltrados = busca.trim()
-    ? pedidos.filter((p) => String(p.shopify_order_id).toLowerCase().includes(busca.trim().toLowerCase()))
+    ? pedidos.filter((p) => {
+        const termo = busca.trim().toLowerCase();
+        return String(p.shopify_order_id).toLowerCase().includes(termo) || (p.numero_pedido ?? "").toLowerCase().includes(termo);
+      })
     : pedidos;
 
   const totalPaginas = Math.max(1, Math.ceil(pedidosFiltrados.length / porPagina));
@@ -128,19 +146,8 @@ export default function VisualizacaoParceiro() {
     </div>
   );
 
-  const atalho = (label: string, deVal: string, ateVal: string) => (
-    <a
-      href={`?id=${idSelecionado}&de=${deVal}&ate=${ateVal}`}
-      style={{
-        padding: "7px 14px", borderRadius: "8px", fontSize: "12px", fontWeight: "600",
-        textDecoration: "none", border: "1px solid #ddd",
-        background: de === deVal && ate === ateVal ? "#111" : "#fff",
-        color: de === deVal && ate === ateVal ? "#fff" : "#555",
-      }}
-    >
-      {label}
-    </a>
-  );
+  const opcoesMes = mesesRecentes();
+  const mesSelecionado = opcoesMes.find((o) => o.de === de && o.ate === ate)?.mes ?? "";
 
   return (
     <>
@@ -211,16 +218,26 @@ export default function VisualizacaoParceiro() {
               </div>
               <Form method="get" style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
                 <input type="hidden" name="id" value={idSelecionado} />
+                <select
+                  value={mesSelecionado}
+                  onChange={(e) => {
+                    const opcao = opcoesMes.find((o) => o.mes === e.target.value);
+                    if (opcao) window.location.href = `?id=${idSelecionado}&de=${opcao.de}&ate=${opcao.ate}`;
+                  }}
+                  style={{ ...dateInput, cursor: "pointer", textTransform: "capitalize" }}
+                >
+                  {opcoesMes.map((o) => (
+                    <option key={o.mes} value={o.mes} style={{ textTransform: "capitalize" }}>{o.label}</option>
+                  ))}
+                  {!mesSelecionado && <option value="">Personalizado</option>}
+                </select>
+                <span style={{ color: "#ccc", fontSize: "13px" }}>|</span>
                 <input type="date" name="de" defaultValue={de} style={dateInput} />
                 <span style={{ color: "#aaa", fontSize: "13px" }}>até</span>
                 <input type="date" name="ate" defaultValue={ate} style={dateInput} />
                 <button type="submit" style={{ padding: "8px 18px", background: "#00C9A7", color: "#fff", border: "none", borderRadius: "8px", fontWeight: "700", fontSize: "13px", cursor: "pointer" }}>
                   Aplicar
                 </button>
-                <div style={{ display: "flex", gap: "6px" }}>
-                  {atalho("Este mês", primeiroDiaMes(mesAtual()), hojeStr())}
-                  {atalho("Mês passado", primeiroDiaMes(mesAnterior()), ultimoDiaMes(mesAnterior()))}
-                </div>
               </Form>
             </div>
 
@@ -242,7 +259,7 @@ export default function VisualizacaoParceiro() {
                 {pedidosPagina.map((p) => (
                   <tr key={p.shopify_order_id} style={{ borderBottom: "1px solid #f5f5f5", opacity: p.cancelado ? 0.5 : 1 }}>
                     <td style={td}>
-                      <div style={{ fontWeight: "600" }}>#{p.shopify_order_id}</div>
+                      <div style={{ fontWeight: "600" }}>{p.numero_pedido || `#${p.shopify_order_id}`}</div>
                       <div style={{ fontSize: "12px", color: "#999", marginTop: "2px" }}>{fmtDateTime(p.criado_em)}</div>
                     </td>
                     <td style={td}>

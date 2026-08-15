@@ -24,6 +24,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
   const mes = mesAtual();
   const shopifyOrderId = String(order.id);
+  const numeroPedido = order.name ?? `#${order.order_number ?? shopifyOrderId}`;
   const valorTotal = parseFloat(order.total_price ?? "0");
   const lineItems: any[] = order.line_items ?? [];
 
@@ -55,7 +56,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         : comissaoBase;
 
       await supabase.from("pedidos").upsert(
-        { shopify_order_id: shopifyOrderId, afiliada_id: afiliada.id, valor_total: valorTotal, comissao, comissao_base: comissaoBase, mes_referencia: mes },
+        { shopify_order_id: shopifyOrderId, numero_pedido: numeroPedido, afiliada_id: afiliada.id, valor_total: valorTotal, comissao, comissao_base: comissaoBase, mes_referencia: mes },
         { onConflict: "shopify_order_id" }
       );
 
@@ -128,6 +129,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       await supabase.from("pedidos_designer").upsert(
         {
           shopify_order_id: shopifyOrderId,
+          numero_pedido: numeroPedido,
           designer_id: v.designer_id,
           shopify_product_id: v.shopify_product_id,
           nome_produto: nomeProduto,

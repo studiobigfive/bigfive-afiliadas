@@ -13,15 +13,30 @@ function ultimoDiaMes(yyyymm: string) {
   const ultimo = new Date(a, m, 0).getDate();
   return `${yyyymm}-${String(ultimo).padStart(2, "0")}`;
 }
-function mesAnterior() {
-  const now = new Date();
-  const y = now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear();
-  const m = now.getMonth() === 0 ? 12 : now.getMonth();
-  return `${y}-${String(m).padStart(2, "0")}`;
+function deslocarMes(yyyymm: string, delta: number): string {
+  const [a, m] = yyyymm.split("-").map(Number);
+  const d = new Date(a, m - 1 + delta, 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 }
 function hojeStr() {
   const now = new Date();
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+}
+function labelMes(yyyymm: string) {
+  const [a, m] = yyyymm.split("-").map(Number);
+  return new Date(a, m - 1).toLocaleString("pt-BR", { month: "long", year: "numeric" });
+}
+function mesesRecentes() {
+  const atual = mesAtual();
+  return [0, -1, -2].map((delta) => {
+    const mes = deslocarMes(atual, delta);
+    return {
+      mes,
+      label: delta === 0 ? `${labelMes(mes)} (atual)` : labelMes(mes),
+      de: primeiroDiaMes(mes),
+      ate: delta === 0 ? hojeStr() : ultimoDiaMes(mes),
+    };
+  });
 }
 
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
@@ -96,7 +111,7 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
     // pra montar o comprovante que vai ser copiado e mandado pra influencer.
     const { data: pedidosDoMes } = await supabase
       .from("pedidos")
-      .select("shopify_order_id, valor_total, comissao, criado_em")
+      .select("shopify_order_id, numero_pedido, valor_total, comissao, criado_em")
       .eq("afiliada_id", id)
       .eq("mes_referencia", mesRef)
       .eq("cancelado", false)
@@ -148,7 +163,7 @@ function fmtDataCurta(d: string) {
 }
 
 function gerarTextoComprovante(
-  pedidosDoMes: Array<{ shopify_order_id: string; valor_total: number; comissao: number; criado_em: string }>,
+  pedidosDoMes: Array<{ shopify_order_id: string; numero_pedido: string | null; valor_total: number; comissao: number; criado_em: string }>,
   mesRef: string,
   valorPago: number
 ) {
@@ -158,7 +173,8 @@ function gerarTextoComprovante(
 
   const linhas = pedidosDoMes.map((p) => {
     const percentual = p.valor_total > 0 ? Math.round((p.comissao / p.valor_total) * 100) : 0;
-    return `${fmtDataCurta(p.criado_em)} — Pedido #${p.shopify_order_id}: ${fmt(p.valor_total)} → ${percentual}% = ${fmt(p.comissao)}`;
+    const numero = p.numero_pedido || `#${p.shopify_order_id}`;
+    return `${fmtDataCurta(p.criado_em)} — Pedido ${numero}: ${fmt(p.valor_total)} → ${percentual}% = ${fmt(p.comissao)}`;
   });
   const subtotal = pedidosDoMes.reduce((s, p) => s + p.comissao, 0);
 
@@ -180,7 +196,7 @@ export default function PainelAfiliadaDetalhe() {
   const fetcher = useFetcher<{
     sucesso?: string;
     erro?: string;
-    pedidosDoMes?: Array<{ shopify_order_id: string; valor_total: number; comissao: number; criado_em: string }>;
+    pedidosDoMes?: Array<{ shopify_order_id: string; numero_pedido: string | null; valor_total: number; comissao: number; criado_em: string }>;
     valorPago?: number;
     mesPago?: string;
   }>();
@@ -214,7 +230,7 @@ export default function PainelAfiliadaDetalhe() {
     const linhas = [
       ["Pedido", "Status", "Venda", "Comissão", "Data"],
       ...pedidos.map((p) => [
-        `#${p.shopify_order_id}`,
+        p.numero_pedido || `#${p.shopify_order_id}`,
         p.cancelado ? "Cancelado" : "Pago",
         p.valor_total.toFixed(2).replace(".", ","),
         p.comissao.toFixed(2).replace(".", ","),
@@ -230,19 +246,8 @@ export default function PainelAfiliadaDetalhe() {
     URL.revokeObjectURL(url);
   };
 
-  const atalho = (label: string, deVal: string, ateVal: string) => (
-    <a
-      href={`?de=${deVal}&ate=${ateVal}`}
-      style={{
-        padding: "5px 10px", borderRadius: "6px", fontSize: "12px", fontWeight: "600",
-        textDecoration: "none", border: "1px solid #ddd",
-        background: de === deVal && ate === ateVal ? "#111" : "#fff",
-        color: de === deVal && ate === ateVal ? "#fff" : "#555",
-      }}
-    >
-      {label}
-    </a>
-  );
+  const opcoesMes = mesesRecentes();
+  const mesSelecionado = opcoesMes.find((o) => o.de === de && o.ate === ate)?.mes ?? "";
 
   return (
     <>
@@ -266,6 +271,19 @@ export default function PainelAfiliadaDetalhe() {
       {/* Filtro de período */}
       <div style={{ background: "#fff", borderRadius: "12px", padding: "16px 20px", boxShadow: "0 1px 3px rgba(0,0,0,0.08)", marginBottom: "24px" }}>
         <Form method="get" style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
+          <select
+            value={mesSelecionado}
+            onChange={(e) => {
+              const opcao = opcoesMes.find((o) => o.mes === e.target.value);
+              if (opcao) window.location.href = `?de=${opcao.de}&ate=${opcao.ate}`;
+            }}
+            style={{ ...dateInput, cursor: "pointer", textTransform: "capitalize" }}
+          >
+            {opcoesMes.map((o) => (
+              <option key={o.mes} value={o.mes} style={{ textTransform: "capitalize" }}>{o.label}</option>
+            ))}
+            {!mesSelecionado && <option value="">Personalizado</option>}
+          </select>
           <span style={{ fontSize: "13px", fontWeight: "600", color: "#666" }}>Período:</span>
           <input type="date" name="de" defaultValue={de} style={dateInput} />
           <span style={{ color: "#aaa", fontSize: "13px" }}>até</span>
@@ -273,10 +291,6 @@ export default function PainelAfiliadaDetalhe() {
           <button type="submit" style={{ padding: "7px 16px", background: "#111", color: "#fff", border: "none", borderRadius: "8px", fontWeight: "700", fontSize: "13px", cursor: "pointer" }}>
             Filtrar
           </button>
-          <div style={{ display: "flex", gap: "6px", marginLeft: "4px" }}>
-            {atalho("Este mês", primeiroDiaMes(mesAtual()), hojeStr())}
-            {atalho("Mês passado", primeiroDiaMes(mesAnterior()), ultimoDiaMes(mesAnterior()))}
-          </div>
         </Form>
       </div>
 
@@ -441,7 +455,7 @@ export default function PainelAfiliadaDetalhe() {
                 {pedidos.map((p) => (
                   <tr key={p.id} style={{ borderBottom: "1px solid #f5f5f5", opacity: p.cancelado ? 0.5 : 1 }}>
                     <td style={{ ...td, fontWeight: "600" }}>
-                      #{p.shopify_order_id}
+                      {p.numero_pedido || `#${p.shopify_order_id}`}
                       {p.cancelado && <span style={{ marginLeft: "6px", background: "#fee2e2", color: "#e53e3e", padding: "1px 6px", borderRadius: "4px", fontSize: "10px", fontWeight: "700" }}>CANCELADO</span>}
                     </td>
                     <td style={{ ...td, color: "#666" }}>{fmt(p.valor_total)}</td>

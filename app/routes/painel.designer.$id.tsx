@@ -14,11 +14,10 @@ function mesAtualStr() {
   const now = new Date();
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
 }
-function mesAnteriorStr() {
-  const now = new Date();
-  const y = now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear();
-  const m = now.getMonth() === 0 ? 12 : now.getMonth();
-  return `${y}-${String(m).padStart(2, "0")}`;
+function deslocarMes(yyyymm: string, delta: number): string {
+  const [a, m] = yyyymm.split("-").map(Number);
+  const d = new Date(a, m - 1 + delta, 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 }
 function hojeStr() {
   const now = new Date();
@@ -28,6 +27,18 @@ function fmtMes(yyyymm: string) {
   if (!yyyymm) return "—";
   const [a, m] = yyyymm.split("-");
   return new Date(Number(a), Number(m) - 1).toLocaleString("pt-BR", { month: "long", year: "numeric" });
+}
+function mesesRecentes() {
+  const atual = mesAtualStr();
+  return [0, -1, -2].map((delta) => {
+    const mes = deslocarMes(atual, delta);
+    return {
+      mes,
+      label: delta === 0 ? `${fmtMes(mes)} (atual)` : fmtMes(mes),
+      de: primeiroDiaMes(mes),
+      ate: delta === 0 ? hojeStr() : ultimoDiaMes(mes),
+    };
+  });
 }
 
 function fmtDataCurta(d: string) {
@@ -86,7 +97,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
     supabase.from("designer_produtos").select("id, shopify_product_id, nome_produto").eq("designer_id", id).order("nome_produto"),
     supabase
       .from("pedidos_designer")
-      .select("id, shopify_order_id, nome_produto, shopify_product_id, valor_item, comissao, mes_referencia, criado_em, cancelado")
+      .select("id, shopify_order_id, numero_pedido, nome_produto, shopify_product_id, valor_item, comissao, mes_referencia, criado_em, cancelado")
       .eq("designer_id", id)
       .gte("criado_em", `${de}T00:00:00`)
       .lte("criado_em", `${ate}T23:59:59`)
@@ -157,7 +168,7 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
     // pra montar o comprovante que vai ser copiado e mandado pro designer.
     const { data: pedidosDoMes } = await supabase
       .from("pedidos_designer")
-      .select("nome_produto, valor_item, comissao, criado_em")
+      .select("numero_pedido, nome_produto, valor_item, comissao, criado_em")
       .eq("designer_id", id)
       .eq("mes_referencia", mesRef)
       .eq("cancelado", false)
@@ -317,7 +328,7 @@ export default function PainelDesignerDetalhe() {
       ["Produto", "Pedido", "Status", "Valor item", "Comissão", "Data"],
       ...pedidos.map((p) => [
         p.nome_produto || "",
-        `#${p.shopify_order_id}`,
+        p.numero_pedido || `#${p.shopify_order_id}`,
         p.cancelado ? "Cancelado" : "Pago",
         (p.valor_item ?? 0).toFixed(2).replace(".", ","),
         (p.comissao ?? 0).toFixed(2).replace(".", ","),
@@ -335,14 +346,8 @@ export default function PainelDesignerDetalhe() {
 
   const produtosVinculadosSet = new Set(produtosVinculadosIds);
 
-  const atalho = (label: string, deVal: string, ateVal: string) => (
-    <a href={`?de=${deVal}&ate=${ateVal}`} style={{
-      padding: "5px 12px", borderRadius: "6px", fontSize: "12px", fontWeight: "600",
-      textDecoration: "none", border: "1px solid #ddd",
-      background: de === deVal && ate === ateVal ? "#111" : "#fff",
-      color: de === deVal && ate === ateVal ? "#fff" : "#555",
-    }}>{label}</a>
-  );
+  const opcoesMes = mesesRecentes();
+  const mesSelecionado = opcoesMes.find((o) => o.de === de && o.ate === ate)?.mes ?? "";
 
   return (
     <>
@@ -373,6 +378,19 @@ export default function PainelDesignerDetalhe() {
       {/* Filtro de período */}
       <div style={{ ...card, padding: "14px 20px", marginBottom: "20px" }}>
         <Form method="get" style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
+          <select
+            value={mesSelecionado}
+            onChange={(e) => {
+              const opcao = opcoesMes.find((o) => o.mes === e.target.value);
+              if (opcao) window.location.href = `?de=${opcao.de}&ate=${opcao.ate}`;
+            }}
+            style={{ ...dateInput, cursor: "pointer", textTransform: "capitalize" }}
+          >
+            {opcoesMes.map((o) => (
+              <option key={o.mes} value={o.mes} style={{ textTransform: "capitalize" }}>{o.label}</option>
+            ))}
+            {!mesSelecionado && <option value="">Personalizado</option>}
+          </select>
           <span style={{ fontSize: "13px", fontWeight: "600", color: "#666" }}>Período:</span>
           <input type="date" name="de" defaultValue={de} style={dateInput} />
           <span style={{ color: "#aaa", fontSize: "13px" }}>até</span>
@@ -380,10 +398,6 @@ export default function PainelDesignerDetalhe() {
           <button type="submit" style={{ padding: "7px 16px", background: "#111", color: "#fff", border: "none", borderRadius: "8px", fontWeight: "700", fontSize: "13px", cursor: "pointer" }}>
             Filtrar
           </button>
-          <div style={{ display: "flex", gap: "6px" }}>
-            {atalho("Este mês", primeiroDiaMes(mesAtualStr()), hojeStr())}
-            {atalho("Mês passado", primeiroDiaMes(mesAnteriorStr()), ultimoDiaMes(mesAnteriorStr()))}
-          </div>
         </Form>
       </div>
 
@@ -728,7 +742,7 @@ export default function PainelDesignerDetalhe() {
                         </span>
                       )}
                     </td>
-                    <td style={{ ...td, color: "#888" }}>#{p.shopify_order_id}</td>
+                    <td style={{ ...td, color: "#888" }}>{p.numero_pedido || `#${p.shopify_order_id}`}</td>
                     <td style={{ ...td, color: "#666" }}>{fmt(p.valor_item ?? 0)}</td>
                     <td style={{ ...td, fontWeight: "700", color: p.cancelado ? "#ccc" : "#00C9A7" }}>
                       {p.cancelado ? <s>{fmt(p.comissao ?? 0)}</s> : fmt(p.comissao ?? 0)}

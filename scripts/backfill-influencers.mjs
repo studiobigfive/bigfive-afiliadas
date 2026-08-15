@@ -133,6 +133,7 @@ for (const [afiliadaId, pedidosDaAfiliada] of pedidosPorAfiliada) {
 
     const { error } = await supabase.from("pedidos").insert({
       shopify_order_id: shopifyOrderId,
+      numero_pedido: pedido.name,
       afiliada_id: afiliadaId,
       valor_total: valorTotal,
       comissao,

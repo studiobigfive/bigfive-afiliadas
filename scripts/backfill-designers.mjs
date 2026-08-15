@@ -160,6 +160,7 @@ for (const pedido of pedidos) {
 
       const { error } = await supabase.from("pedidos_designer").insert({
         shopify_order_id: shopifyOrderId,
+        numero_pedido: pedido.name,
         designer_id: d.id,
         shopify_product_id: productId,
         nome_produto: v.nome_produto || "",
