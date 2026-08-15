@@ -64,6 +64,15 @@ export async function iniciarLoginAction(request: Request) {
       return { erro: "Cupom ou e-mail incorretos" };
     }
 
+    // Conta de visualização do admin: entra direto, sem OTP
+    if (cupom === PREVIEW_CUPOM) {
+      const authSession = await authStorage.getSession();
+      authSession.set("afiliada_id", afiliada.id);
+      throw redirect("/parcerias", {
+        headers: { "Set-Cookie": await authStorage.commitSession(authSession) },
+      });
+    }
+
     // Issue #19: limpa OTPs expirados para não acumular lixo na tabela
     await supabase
       .from("afiliada_otp")

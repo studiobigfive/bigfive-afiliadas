@@ -63,6 +63,15 @@ export async function iniciarLoginDesignerAction(request: Request) {
       return { erro: "E-mail não encontrado" };
     }
 
+    // Conta de visualização do admin: entra direto, sem OTP
+    if (email === PREVIEW_EMAIL) {
+      const authSession = await authStorage.getSession();
+      authSession.set("designer_id", designer.id);
+      throw redirect("/designer", {
+        headers: { "Set-Cookie": await authStorage.commitSession(authSession) },
+      });
+    }
+
     // Limpa OTPs expirados para não acumular lixo na tabela
     await supabase
       .from("designer_otp")
@@ -171,7 +180,7 @@ export async function getPendingEmailDesigner(request: Request): Promise<string 
 }
 
 // Conta fixa do admin pra visualizar o portal como designer, sem afetar dados reais de parceiros
-const PREVIEW_EMAIL = "preview@bigfive.local";
+const PREVIEW_EMAIL = "studiobigfive@gmail.com";
 
 export async function criarSessaoDesignerPreview(): Promise<string> {
   const { data: designer } = await supabase.from("designers").select("id").ilike("email", PREVIEW_EMAIL).single();
