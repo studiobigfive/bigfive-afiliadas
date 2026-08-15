@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { LoaderFunctionArgs } from "react-router";
 import { useLoaderData, Form } from "react-router";
-import { requireAfiliadaAuth } from "../lib/afiliada.auth.server";
+import { requireDesignerAuth } from "../lib/designer.auth.server";
 import { supabase } from "../lib/supabase.server";
 import { mesAtual } from "../lib/comissao";
 
@@ -25,7 +25,6 @@ function labelMes(yyyymm: string) {
   const [a, m] = yyyymm.split("-").map(Number);
   return new Date(a, m - 1).toLocaleString("pt-BR", { month: "long", year: "numeric" });
 }
-// Mês atual + os 2 anteriores, pro menu cascata
 function mesesRecentes() {
   const atual = mesAtual();
   return [0, -1, -2].map((delta) => {
@@ -40,32 +39,29 @@ function mesesRecentes() {
 }
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-  const afiliadaId = await requireAfiliadaAuth(request);
+  const designerId = await requireDesignerAuth(request);
   const url = new URL(request.url);
 
-  // Issue #15: swap se de > ate
   const deRaw = url.searchParams.get("de") || primeiroDiaMes(mesAtual());
   const ateRaw = url.searchParams.get("ate") || hojeStr();
   const de = deRaw <= ateRaw ? deRaw : ateRaw;
   const ate = deRaw <= ateRaw ? ateRaw : deRaw;
 
-  const { data: afiliada } = await supabase
-    .from("afiliadas")
-    .select("nome, cupom")
-    .eq("id", afiliadaId)
+  const { data: designer } = await supabase
+    .from("designers")
+    .select("nome, percentual")
+    .eq("id", designerId)
     .single();
 
-  // Issue #11: limita a 100 pedidos por período
   const { data: pedidos } = await supabase
-    .from("pedidos")
-    .select("shopify_order_id, numero_pedido, mes_referencia, valor_total, comissao, criado_em, cancelado")
-    .eq("afiliada_id", afiliadaId)
+    .from("pedidos_designer")
+    .select("shopify_order_id, numero_pedido, nome_produto, mes_referencia, valor_item, comissao, criado_em, cancelado")
+    .eq("designer_id", designerId)
     .gte("criado_em", `${de}T00:00:00`)
     .lte("criado_em", `${ate}T23:59:59`)
     .order("criado_em", { ascending: false })
     .limit(100);
 
-  // Pagamentos dos meses que caem no range
   const mesesNoRange = new Set<string>();
   const deDate = new Date(de);
   const ateDate = new Date(ate);
@@ -75,9 +71,9 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     cur.setMonth(cur.getMonth() + 1);
   }
   const { data: pagamentos } = await supabase
-    .from("pagamentos")
+    .from("pagamentos_designer")
     .select("valor, mes_referencia, observacao, pago_em")
-    .eq("afiliada_id", afiliadaId)
+    .eq("designer_id", designerId)
     .in("mes_referencia", Array.from(mesesNoRange))
     .order("pago_em", { ascending: false });
 
@@ -88,7 +84,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const totalPago = Math.round(pagamentosFiltrados.reduce((s, p) => s + p.valor, 0) * 100) / 100;
   const aReceber = Math.max(0, Math.round((totalComissao - totalPago) * 100) / 100);
 
-  return { afiliada, pedidos: pedidosFiltrados, pagamentos: pagamentosFiltrados, totalComissao, aReceber, de, ate, truncated: pedidosFiltrados.length === 100 };
+  return { designer, pedidos: pedidosFiltrados, pagamentos: pagamentosFiltrados, totalComissao, aReceber, de, ate, truncated: pedidosFiltrados.length === 100 };
 };
 
 const th: React.CSSProperties = { padding: "10px 16px", textAlign: "left", fontSize: "12px", fontWeight: "700", color: "#666", textTransform: "uppercase", letterSpacing: "0.5px" };
@@ -102,8 +98,8 @@ function fmtMes(yyyymm: string) {
 
 const paginaOpcoes = [5, 10, 25, 50];
 
-export default function AfiliadaDashboard() {
-  const { afiliada, pedidos, pagamentos, totalComissao, aReceber, de, ate, truncated } = useLoaderData<typeof loader>();
+export default function DesignerDashboard() {
+  const { designer, pedidos, pagamentos, totalComissao, aReceber, de, ate, truncated } = useLoaderData<typeof loader>();
   const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
   const fmtDate = (d: string) => new Date(d).toLocaleDateString("pt-BR");
   const fmtDateTime = (d: string) => new Date(d).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
@@ -115,7 +111,7 @@ export default function AfiliadaDashboard() {
   const pedidosFiltrados = busca.trim()
     ? pedidos.filter((p) => {
         const termo = busca.trim().toLowerCase();
-        return String(p.shopify_order_id).toLowerCase().includes(termo) || (p.numero_pedido ?? "").toLowerCase().includes(termo);
+        return String(p.shopify_order_id).toLowerCase().includes(termo) || (p.numero_pedido ?? "").toLowerCase().includes(termo) || (p.nome_produto ?? "").toLowerCase().includes(termo);
       })
     : pedidos;
 
@@ -123,17 +119,17 @@ export default function AfiliadaDashboard() {
   const paginaAtual = Math.min(pagina, totalPaginas);
   const pedidosPagina = pedidosFiltrados.slice((paginaAtual - 1) * porPagina, paginaAtual * porPagina);
 
-  const totalVendas = pedidos.filter((p) => !p.cancelado).reduce((s, p) => s + p.valor_total, 0);
+  const totalVendas = pedidos.filter((p) => !p.cancelado).reduce((s, p) => s + p.valor_item, 0);
   const percentualEfetivo = totalVendas > 0 ? Math.round((totalComissao / totalVendas) * 1000) / 10 : 0;
 
-  // Issue #12: exporta pedidos como CSV
   const exportarCSV = () => {
     const linhas = [
-      ["Pedido", "Status", "Venda", "Comissão", "Data"],
+      ["Pedido", "Produto", "Status", "Valor", "Comissão", "Data"],
       ...pedidos.map((p) => [
         p.numero_pedido || `#${p.shopify_order_id}`,
+        p.nome_produto || "",
         p.cancelado ? "Cancelado" : "Pago",
-        p.valor_total.toFixed(2).replace(".", ","),
+        p.valor_item.toFixed(2).replace(".", ","),
         p.comissao.toFixed(2).replace(".", ","),
         fmtDate(p.criado_em),
       ]),
@@ -161,9 +157,9 @@ export default function AfiliadaDashboard() {
     <>
       {/* Boas-vindas */}
       <div style={{ marginBottom: "20px" }}>
-        <h1 style={{ margin: "0 0 8px", fontSize: "22px", fontWeight: "700" }}>Olá, {afiliada?.nome}!</h1>
+        <h1 style={{ margin: "0 0 8px", fontSize: "22px", fontWeight: "700" }}>Olá, {designer?.nome}!</h1>
         <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
-          <span style={{ background: "#111", color: "#fff", padding: "3px 10px", borderRadius: "4px", fontSize: "11px", fontWeight: "700", letterSpacing: "2px" }}>{afiliada?.cupom}</span>
+          <span style={{ background: "#f0fdf9", color: "#00C9A7", padding: "3px 10px", borderRadius: "4px", fontSize: "11px", fontWeight: "700" }}>{designer?.percentual}% por design</span>
         </div>
       </div>
 
@@ -190,12 +186,12 @@ export default function AfiliadaDashboard() {
           )}
         </div>
 
-        {/* Busca + filtro de período, numa linha só */}
+        {/* Busca + filtro de período */}
         <div style={{ padding: "16px 24px", borderBottom: "1px solid #f0f0f0", background: "#fafafa" }}>
           <div style={{ marginBottom: "10px" }}>
             <input
               type="text"
-              placeholder="Buscar por número do pedido..."
+              placeholder="Buscar por número do pedido ou produto..."
               value={busca}
               onChange={(e) => { setBusca(e.target.value); setPagina(1); }}
               style={{ width: "100%", boxSizing: "border-box", padding: "9px 14px", border: "1px solid #ddd", borderRadius: "8px", fontSize: "14px" }}
@@ -237,18 +233,18 @@ export default function AfiliadaDashboard() {
           <table style={{ width: "100%", minWidth: "420px", borderCollapse: "collapse" }}>
             <thead>
               <tr style={{ background: "#f9f9f9", borderBottom: "1px solid #eee" }}>
-                {["Pedido/Data", "Status", "Venda/Comissão"].map((h) => <th key={h} style={th}>{h}</th>)}
+                {["Pedido/Produto", "Status", "Valor/Comissão"].map((h) => <th key={h} style={th}>{h}</th>)}
               </tr>
             </thead>
             <tbody>
               {pedidosPagina.length === 0 && (
                 <tr><td colSpan={3} style={{ ...td, textAlign: "center", color: "#999" }}>Nenhum pedido encontrado</td></tr>
               )}
-              {pedidosPagina.map((p) => (
-                <tr key={p.shopify_order_id} style={{ borderBottom: "1px solid #f5f5f5", opacity: p.cancelado ? 0.5 : 1 }}>
+              {pedidosPagina.map((p, i) => (
+                <tr key={`${p.shopify_order_id}-${i}`} style={{ borderBottom: "1px solid #f5f5f5", opacity: p.cancelado ? 0.5 : 1 }}>
                   <td style={td}>
                     <div style={{ fontWeight: "600" }}>{p.numero_pedido || `#${p.shopify_order_id}`}</div>
-                    <div style={{ fontSize: "12px", color: "#999", marginTop: "2px" }}>{fmtDateTime(p.criado_em)}</div>
+                    <div style={{ fontSize: "12px", color: "#999", marginTop: "2px" }}>{p.nome_produto} · {fmtDateTime(p.criado_em)}</div>
                   </td>
                   <td style={td}>
                     <span style={{
@@ -261,7 +257,7 @@ export default function AfiliadaDashboard() {
                     </span>
                   </td>
                   <td style={td}>
-                    <div style={{ color: "#666" }}>{fmt(p.valor_total)}</div>
+                    <div style={{ color: "#666" }}>{fmt(p.valor_item)}</div>
                     <div style={{ fontWeight: "700", color: p.cancelado ? "#ccc" : "#00C9A7", marginTop: "2px" }}>
                       {p.cancelado ? <s>{fmt(p.comissao)}</s> : fmt(p.comissao)}
                     </div>

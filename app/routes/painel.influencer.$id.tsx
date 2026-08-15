@@ -260,7 +260,7 @@ export default function PainelAfiliadaDetalhe() {
         <span style={{ background: "#111", color: "#fff", padding: "3px 10px", borderRadius: "4px", fontSize: "11px", fontWeight: "700", letterSpacing: "1px" }}>{afiliada.cupom}</span>
         {!afiliada.ativo && <span style={{ background: "#fee2e2", color: "#e53e3e", padding: "3px 10px", borderRadius: "4px", fontSize: "11px", fontWeight: "700" }}>INATIVA</span>}
         <Link
-          to={`/painel/visualizacao?id=${afiliada.id}`}
+          to={`/painel/visualizacao?tipo=influencer&id=${afiliada.id}`}
           target="_blank"
           style={{ marginLeft: "auto", padding: "6px 14px", background: "#f0fdf9", color: "#00C9A7", border: "1px solid #a7f3d0", borderRadius: "6px", textDecoration: "none", fontWeight: "700", fontSize: "13px" }}
         >

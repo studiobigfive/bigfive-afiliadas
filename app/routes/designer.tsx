@@ -1,17 +1,17 @@
 import type { LoaderFunctionArgs, ActionFunctionArgs } from "react-router";
 import { Outlet, Form } from "react-router";
-import { requireAfiliadaAuth, logoutAfiliada } from "../lib/afiliada.auth.server";
+import { requireDesignerAuth, logoutDesigner } from "../lib/designer.auth.server";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-  await requireAfiliadaAuth(request);
+  await requireDesignerAuth(request);
   return null;
 };
 
 export const action = async ({ request }: ActionFunctionArgs) => {
-  return logoutAfiliada(request);
+  return logoutDesigner(request);
 };
 
-export default function AfiliadaLayout() {
+export default function DesignerLayout() {
   return (
     <div style={{ fontFamily: "Inter, system-ui, sans-serif", minHeight: "100vh", background: "#f5f5f5" }}>
       <style>{`

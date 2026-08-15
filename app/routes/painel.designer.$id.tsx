@@ -372,6 +372,13 @@ export default function PainelDesignerDetalhe() {
           {!designer.ativo && (
             <span style={{ background: "#fee2e2", color: "#e53e3e", padding: "3px 10px", borderRadius: "4px", fontSize: "12px", fontWeight: "700" }}>INATIVO</span>
           )}
+          <Link
+            to={`/painel/visualizacao?tipo=designer&id=${designer.id}`}
+            target="_blank"
+            style={{ marginLeft: "auto", padding: "6px 14px", background: "#f0fdf9", color: "#00C9A7", border: "1px solid #a7f3d0", borderRadius: "6px", textDecoration: "none", fontWeight: "700", fontSize: "13px" }}
+          >
+            👁 Ver portal
+          </Link>
         </div>
       </div>
 

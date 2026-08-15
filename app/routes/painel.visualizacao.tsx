@@ -5,8 +5,8 @@ import { requireAuth } from "../lib/painel.auth.server";
 import { supabase } from "../lib/supabase.server";
 import { mesAtual } from "../lib/comissao";
 
-// Réplica do portal da influencer (/parcerias), mas acessada com a senha do admin —
-// sem precisar do código por e-mail. Só pra visualização, não é a sessão real dela.
+// Réplica do portal do parceiro (influencer ou designer), acessada com a senha do admin —
+// sem precisar do código por e-mail. Só pra visualização, não é a sessão real dela/dele.
 
 function primeiroDiaMes(yyyymm: string) {
   return `${yyyymm}-01`;
@@ -41,15 +41,32 @@ function mesesRecentes() {
   });
 }
 
+type PedidoNormalizado = {
+  id: string;
+  label: string;
+  sublabel: string | null;
+  valor: number;
+  comissao: number;
+  cancelado: boolean;
+  criado_em: string;
+};
+
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   await requireAuth(request);
   const url = new URL(request.url);
-  const afiliadaId = url.searchParams.get("id");
+  const tipo = url.searchParams.get("tipo") === "designer" ? "designer" : "influencer";
+  const id = url.searchParams.get("id");
 
-  const { data: influencers } = await supabase.from("afiliadas").select("id, nome, cupom").eq("ativo", true).order("nome");
+  const [{ data: influencers }, { data: designers }] = await Promise.all([
+    supabase.from("afiliadas").select("id, nome, cupom").eq("ativo", true).order("nome"),
+    supabase.from("designers").select("id, nome, percentual").eq("ativo", true).order("nome"),
+  ]);
 
-  if (!afiliadaId) {
-    return { influencers: influencers ?? [], afiliada: null as any, pedidos: [], pagamentos: [], totalComissao: 0, aReceber: 0, de: "", ate: "", truncated: false, idSelecionado: "" };
+  if (!id) {
+    return {
+      tipo, influencers: influencers ?? [], designers: designers ?? [],
+      pessoa: null as any, pedidos: [] as PedidoNormalizado[], pagamentos: [], totalComissao: 0, aReceber: 0, de: "", ate: "", truncated: false, idSelecionado: "",
+    };
   }
 
   const deRaw = url.searchParams.get("de") || primeiroDiaMes(mesAtual());
@@ -57,16 +74,9 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const de = deRaw <= ateRaw ? deRaw : ateRaw;
   const ate = deRaw <= ateRaw ? ateRaw : deRaw;
 
-  const { data: afiliada } = await supabase.from("afiliadas").select("nome, cupom, pix").eq("id", afiliadaId).single();
-
-  const { data: pedidos } = await supabase
-    .from("pedidos")
-    .select("shopify_order_id, numero_pedido, mes_referencia, valor_total, comissao, criado_em, cancelado")
-    .eq("afiliada_id", afiliadaId)
-    .gte("criado_em", `${de}T00:00:00`)
-    .lte("criado_em", `${ate}T23:59:59`)
-    .order("criado_em", { ascending: false })
-    .limit(100);
+  let pessoa: { nome: string; badge: string } | null = null;
+  let pedidos: PedidoNormalizado[] = [];
+  let pagamentos: Array<{ valor: number; mes_referencia: string; observacao: string | null; pago_em: string }> = [];
 
   const mesesNoRange = new Set<string>();
   const deDate = new Date(de);
@@ -76,31 +86,77 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     mesesNoRange.add(`${cur.getFullYear()}-${String(cur.getMonth() + 1).padStart(2, "0")}`);
     cur.setMonth(cur.getMonth() + 1);
   }
-  const { data: pagamentos } = await supabase
-    .from("pagamentos")
-    .select("valor, mes_referencia, observacao, pago_em")
-    .eq("afiliada_id", afiliadaId)
-    .in("mes_referencia", Array.from(mesesNoRange))
-    .order("pago_em", { ascending: false });
 
-  const pedidosFiltrados = pedidos ?? [];
-  const pagamentosFiltrados = pagamentos ?? [];
+  if (tipo === "designer") {
+    const { data: designer } = await supabase.from("designers").select("nome, percentual").eq("id", id).single();
+    if (designer) pessoa = { nome: designer.nome, badge: `${designer.percentual}% por design` };
 
-  const totalComissao = Math.round(pedidosFiltrados.filter((p) => !p.cancelado).reduce((s, p) => s + p.comissao, 0) * 100) / 100;
-  const totalPago = Math.round(pagamentosFiltrados.reduce((s, p) => s + p.valor, 0) * 100) / 100;
+    const { data: pedidosDesigner } = await supabase
+      .from("pedidos_designer")
+      .select("shopify_order_id, numero_pedido, nome_produto, valor_item, comissao, criado_em, cancelado")
+      .eq("designer_id", id)
+      .gte("criado_em", `${de}T00:00:00`)
+      .lte("criado_em", `${ate}T23:59:59`)
+      .order("criado_em", { ascending: false })
+      .limit(100);
+
+    pedidos = (pedidosDesigner ?? []).map((p) => ({
+      id: p.shopify_order_id,
+      label: p.numero_pedido || `#${p.shopify_order_id}`,
+      sublabel: p.nome_produto,
+      valor: p.valor_item,
+      comissao: p.comissao,
+      cancelado: p.cancelado,
+      criado_em: p.criado_em,
+    }));
+
+    const { data: pagamentosDesigner } = await supabase
+      .from("pagamentos_designer")
+      .select("valor, mes_referencia, observacao, pago_em")
+      .eq("designer_id", id)
+      .in("mes_referencia", Array.from(mesesNoRange))
+      .order("pago_em", { ascending: false });
+    pagamentos = pagamentosDesigner ?? [];
+  } else {
+    const { data: afiliada } = await supabase.from("afiliadas").select("nome, cupom").eq("id", id).single();
+    if (afiliada) pessoa = { nome: afiliada.nome, badge: afiliada.cupom };
+
+    const { data: pedidosAfiliada } = await supabase
+      .from("pedidos")
+      .select("shopify_order_id, numero_pedido, valor_total, comissao, criado_em, cancelado")
+      .eq("afiliada_id", id)
+      .gte("criado_em", `${de}T00:00:00`)
+      .lte("criado_em", `${ate}T23:59:59`)
+      .order("criado_em", { ascending: false })
+      .limit(100);
+
+    pedidos = (pedidosAfiliada ?? []).map((p) => ({
+      id: p.shopify_order_id,
+      label: p.numero_pedido || `#${p.shopify_order_id}`,
+      sublabel: null,
+      valor: p.valor_total,
+      comissao: p.comissao,
+      cancelado: p.cancelado,
+      criado_em: p.criado_em,
+    }));
+
+    const { data: pagamentosAfiliada } = await supabase
+      .from("pagamentos")
+      .select("valor, mes_referencia, observacao, pago_em")
+      .eq("afiliada_id", id)
+      .in("mes_referencia", Array.from(mesesNoRange))
+      .order("pago_em", { ascending: false });
+    pagamentos = pagamentosAfiliada ?? [];
+  }
+
+  const totalComissao = Math.round(pedidos.filter((p) => !p.cancelado).reduce((s, p) => s + p.comissao, 0) * 100) / 100;
+  const totalPago = Math.round(pagamentos.reduce((s, p) => s + p.valor, 0) * 100) / 100;
   const aReceber = Math.max(0, Math.round((totalComissao - totalPago) * 100) / 100);
 
   return {
-    influencers: influencers ?? [],
-    afiliada,
-    pedidos: pedidosFiltrados,
-    pagamentos: pagamentosFiltrados,
-    totalComissao,
-    aReceber,
-    de,
-    ate,
-    truncated: pedidosFiltrados.length === 100,
-    idSelecionado: afiliadaId,
+    tipo, influencers: influencers ?? [], designers: designers ?? [],
+    pessoa, pedidos, pagamentos, totalComissao, aReceber, de, ate,
+    truncated: pedidos.length === 100, idSelecionado: id,
   };
 };
 
@@ -116,7 +172,7 @@ function fmtMes(yyyymm: string) {
 const paginaOpcoes = [5, 10, 25, 50];
 
 export default function VisualizacaoParceiro() {
-  const { influencers, afiliada, pedidos, pagamentos, totalComissao, aReceber, de, ate, truncated, idSelecionado } = useLoaderData<typeof loader>();
+  const { tipo, influencers, designers, pessoa, pedidos, pagamentos, totalComissao, aReceber, de, ate, truncated, idSelecionado } = useLoaderData<typeof loader>();
   const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
   const fmtDate = (d: string) => new Date(d).toLocaleDateString("pt-BR");
   const fmtDateTime = (d: string) => new Date(d).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
@@ -128,7 +184,7 @@ export default function VisualizacaoParceiro() {
   const pedidosFiltrados = busca.trim()
     ? pedidos.filter((p) => {
         const termo = busca.trim().toLowerCase();
-        return String(p.shopify_order_id).toLowerCase().includes(termo) || (p.numero_pedido ?? "").toLowerCase().includes(termo);
+        return p.id.toLowerCase().includes(termo) || p.label.toLowerCase().includes(termo) || (p.sublabel ?? "").toLowerCase().includes(termo);
       })
     : pedidos;
 
@@ -136,7 +192,7 @@ export default function VisualizacaoParceiro() {
   const paginaAtual = Math.min(pagina, totalPaginas);
   const pedidosPagina = pedidosFiltrados.slice((paginaAtual - 1) * porPagina, paginaAtual * porPagina);
 
-  const totalVendas = pedidos.filter((p) => !p.cancelado).reduce((s, p) => s + p.valor_total, 0);
+  const totalVendas = pedidos.filter((p) => !p.cancelado).reduce((s, p) => s + p.valor, 0);
   const percentualEfetivo = totalVendas > 0 ? Math.round((totalComissao / totalVendas) * 1000) / 10 : 0;
 
   const statCard = (label: string, value: string, color = "#111") => (
@@ -149,41 +205,53 @@ export default function VisualizacaoParceiro() {
   const opcoesMes = mesesRecentes();
   const mesSelecionado = opcoesMes.find((o) => o.de === de && o.ate === ate)?.mes ?? "";
 
+  const tabStyle = (ativo: boolean): React.CSSProperties => ({
+    padding: "8px 16px", borderRadius: "8px", fontSize: "13px", fontWeight: "700", textDecoration: "none",
+    background: ativo ? "#111" : "#fff", color: ativo ? "#fff" : "#666", border: "1px solid #ddd",
+  });
+
   return (
     <>
       {/* Faixa de aviso de modo visualização */}
       <div style={{ background: "#111", color: "#fff", padding: "10px 20px", borderRadius: "10px", marginBottom: "20px", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "10px" }}>
         <span style={{ fontSize: "13px" }}>
-          👁 <strong>Modo visualização</strong> — é assim que {afiliada?.nome ?? "a influencer"} vê o portal dela
+          👁 <strong>Modo visualização</strong> — é assim que {pessoa?.nome ?? "a pessoa"} vê o portal {tipo === "designer" ? "dele/dela" : "dela"}
         </span>
         <Link to="/painel" style={{ color: "#00C9A7", textDecoration: "none", fontWeight: "700", fontSize: "13px" }}>← Voltar ao painel</Link>
       </div>
 
-      {/* Seletor de influencer */}
-      <Form method="get" style={{ background: "#fff", borderRadius: "12px", padding: "14px 20px", boxShadow: "0 1px 3px rgba(0,0,0,0.08)", marginBottom: "24px", display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
-        <span style={{ fontSize: "13px", fontWeight: "600", color: "#666" }}>Influencer:</span>
-        <select name="id" defaultValue={idSelecionado} style={{ ...dateInput, minWidth: "220px", cursor: "pointer" }} onChange={(e) => e.currentTarget.form?.submit()}>
-          <option value="">Selecione...</option>
-          {influencers.map((i) => (
-            <option key={i.id} value={i.id}>{i.nome} ({i.cupom})</option>
-          ))}
-        </select>
-      </Form>
+      {/* Tipo + Seletor de pessoa */}
+      <div style={{ background: "#fff", borderRadius: "12px", padding: "14px 20px", boxShadow: "0 1px 3px rgba(0,0,0,0.08)", marginBottom: "24px", display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
+        <div style={{ display: "flex", gap: "6px" }}>
+          <Link to="/painel/visualizacao?tipo=influencer" style={tabStyle(tipo === "influencer")}>Influencer</Link>
+          <Link to="/painel/visualizacao?tipo=designer" style={tabStyle(tipo === "designer")}>Designer</Link>
+        </div>
+        <div style={{ width: "1px", height: "24px", background: "#e5e5e5" }} />
+        <Form method="get" style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+          <input type="hidden" name="tipo" value={tipo} />
+          <select name="id" defaultValue={idSelecionado} style={{ ...dateInput, minWidth: "220px", cursor: "pointer" }} onChange={(e) => e.currentTarget.form?.submit()}>
+            <option value="">Selecione...</option>
+            {(tipo === "designer" ? designers : influencers).map((p: any) => (
+              <option key={p.id} value={p.id}>{p.nome}{p.cupom ? ` (${p.cupom})` : ""}</option>
+            ))}
+          </select>
+        </Form>
+      </div>
 
-      {!afiliada ? (
+      {!pessoa ? (
         <div style={{ background: "#fff", borderRadius: "12px", padding: "60px 24px", textAlign: "center", color: "#999", boxShadow: "0 1px 3px rgba(0,0,0,0.08)" }}>
-          Escolha uma influencer acima pra ver o portal dela.
+          Escolha {tipo === "designer" ? "um designer" : "uma influencer"} acima pra ver o portal.
         </div>
       ) : (
         <>
           {/* Boas-vindas */}
           <div style={{ marginBottom: "20px" }}>
-            <h1 style={{ margin: "0 0 8px", fontSize: "22px", fontWeight: "700" }}>Olá, {afiliada.nome}!</h1>
+            <h1 style={{ margin: "0 0 8px", fontSize: "22px", fontWeight: "700" }}>Olá, {pessoa.nome}!</h1>
             <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
-              <span style={{ background: "#111", color: "#fff", padding: "3px 10px", borderRadius: "4px", fontSize: "11px", fontWeight: "700", letterSpacing: "2px" }}>{afiliada.cupom}</span>
-              {afiliada.pix && (
-                <span style={{ fontSize: "13px", color: "#888" }}>PIX: <strong style={{ color: "#444" }}>{afiliada.pix}</strong></span>
-              )}
+              <span style={{
+                background: tipo === "designer" ? "#f0fdf9" : "#111", color: tipo === "designer" ? "#00C9A7" : "#fff",
+                padding: "3px 10px", borderRadius: "4px", fontSize: "11px", fontWeight: "700", letterSpacing: tipo === "designer" ? "normal" : "2px",
+              }}>{pessoa.badge}</span>
             </div>
           </div>
 
@@ -210,19 +278,20 @@ export default function VisualizacaoParceiro() {
               <div style={{ marginBottom: "10px" }}>
                 <input
                   type="text"
-                  placeholder="Buscar por número do pedido..."
+                  placeholder={tipo === "designer" ? "Buscar por número do pedido ou produto..." : "Buscar por número do pedido..."}
                   value={busca}
                   onChange={(e) => { setBusca(e.target.value); setPagina(1); }}
                   style={{ width: "100%", boxSizing: "border-box", padding: "9px 14px", border: "1px solid #ddd", borderRadius: "8px", fontSize: "14px" }}
                 />
               </div>
               <Form method="get" style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
+                <input type="hidden" name="tipo" value={tipo} />
                 <input type="hidden" name="id" value={idSelecionado} />
                 <select
                   value={mesSelecionado}
                   onChange={(e) => {
                     const opcao = opcoesMes.find((o) => o.mes === e.target.value);
-                    if (opcao) window.location.href = `?id=${idSelecionado}&de=${opcao.de}&ate=${opcao.ate}`;
+                    if (opcao) window.location.href = `?tipo=${tipo}&id=${idSelecionado}&de=${opcao.de}&ate=${opcao.ate}`;
                   }}
                   style={{ ...dateInput, cursor: "pointer", textTransform: "capitalize" }}
                 >
@@ -249,18 +318,20 @@ export default function VisualizacaoParceiro() {
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead>
                 <tr style={{ background: "#f9f9f9", borderBottom: "1px solid #eee" }}>
-                  {["Pedido/Data", "Status", "Venda/Comissão"].map((h) => <th key={h} style={th}>{h}</th>)}
+                  {[tipo === "designer" ? "Pedido/Produto" : "Pedido/Data", "Status", "Venda/Comissão"].map((h) => <th key={h} style={th}>{h}</th>)}
                 </tr>
               </thead>
               <tbody>
                 {pedidosPagina.length === 0 && (
                   <tr><td colSpan={3} style={{ ...td, textAlign: "center", color: "#999" }}>Nenhum pedido encontrado</td></tr>
                 )}
-                {pedidosPagina.map((p) => (
-                  <tr key={p.shopify_order_id} style={{ borderBottom: "1px solid #f5f5f5", opacity: p.cancelado ? 0.5 : 1 }}>
+                {pedidosPagina.map((p, i) => (
+                  <tr key={`${p.id}-${i}`} style={{ borderBottom: "1px solid #f5f5f5", opacity: p.cancelado ? 0.5 : 1 }}>
                     <td style={td}>
-                      <div style={{ fontWeight: "600" }}>{p.numero_pedido || `#${p.shopify_order_id}`}</div>
-                      <div style={{ fontSize: "12px", color: "#999", marginTop: "2px" }}>{fmtDateTime(p.criado_em)}</div>
+                      <div style={{ fontWeight: "600" }}>{p.label}</div>
+                      <div style={{ fontSize: "12px", color: "#999", marginTop: "2px" }}>
+                        {p.sublabel ? `${p.sublabel} · ` : ""}{fmtDateTime(p.criado_em)}
+                      </div>
                     </td>
                     <td style={td}>
                       <span style={{
@@ -273,7 +344,7 @@ export default function VisualizacaoParceiro() {
                       </span>
                     </td>
                     <td style={td}>
-                      <div style={{ color: "#666" }}>{fmt(p.valor_total)}</div>
+                      <div style={{ color: "#666" }}>{fmt(p.valor)}</div>
                       <div style={{ fontWeight: "700", color: p.cancelado ? "#ccc" : "#00C9A7", marginTop: "2px" }}>
                         {p.cancelado ? <s>{fmt(p.comissao)}</s> : fmt(p.comissao)}
                       </div>
