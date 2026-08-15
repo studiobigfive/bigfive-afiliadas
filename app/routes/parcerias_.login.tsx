@@ -23,19 +23,6 @@ export default function AfiliadaLogin() {
         <Form method="post">
           <div style={{ marginBottom: "16px" }}>
             <label style={{ display: "block", fontWeight: "600", fontSize: "13px", marginBottom: "6px", color: "#444" }}>
-              Seu cupom
-            </label>
-            <input
-              name="cupom"
-              required
-              placeholder="SEUCUPOM"
-              autoComplete="off"
-              style={{ width: "100%", padding: "12px 14px", border: "1.5px solid #ddd", borderRadius: "10px", fontSize: "15px", boxSizing: "border-box", textTransform: "uppercase", letterSpacing: "2px", fontWeight: "700", textAlign: "center", outline: "none" }}
-            />
-          </div>
-
-          <div style={{ marginBottom: "24px" }}>
-            <label style={{ display: "block", fontWeight: "600", fontSize: "13px", marginBottom: "6px", color: "#444" }}>
               Seu e-mail
             </label>
             <input
@@ -44,6 +31,19 @@ export default function AfiliadaLogin() {
               required
               placeholder="seu@email.com"
               style={{ width: "100%", padding: "12px 14px", border: "1.5px solid #ddd", borderRadius: "10px", fontSize: "15px", boxSizing: "border-box", outline: "none" }}
+            />
+          </div>
+
+          <div style={{ marginBottom: "24px" }}>
+            <label style={{ display: "block", fontWeight: "600", fontSize: "13px", marginBottom: "6px", color: "#444" }}>
+              Seu cupom
+            </label>
+            <input
+              name="cupom"
+              required
+              placeholder="SEUCUPOM"
+              autoComplete="off"
+              style={{ width: "100%", padding: "12px 14px", border: "1.5px solid #ddd", borderRadius: "10px", fontSize: "15px", boxSizing: "border-box", textTransform: "uppercase", letterSpacing: "2px", fontWeight: "700", textAlign: "center", outline: "none" }}
             />
           </div>
 

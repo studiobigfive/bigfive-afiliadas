@@ -73,6 +73,18 @@ export async function iniciarLoginAction(request: Request) {
       });
     }
 
+    // Limite de pedidos de código por afiliada, pra não floodar o e-mail dela
+    const quinzeMinAtras = new Date(Date.now() - 15 * 60 * 1000).toISOString();
+    const { count: pedidosRecentes } = await supabase
+      .from("afiliada_otp")
+      .select("id", { count: "exact", head: true })
+      .eq("afiliada_id", afiliada.id)
+      .gte("criado_em", quinzeMinAtras);
+
+    if ((pedidosRecentes ?? 0) >= 3) {
+      return { erro: "Muitos pedidos de código pra essa conta. Aguarde alguns minutos e tente novamente." };
+    }
+
     // Issue #19: limpa OTPs expirados para não acumular lixo na tabela
     await supabase
       .from("afiliada_otp")
