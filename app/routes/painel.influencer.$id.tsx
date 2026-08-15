@@ -112,9 +112,14 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
   }
 
   if (form.get("intent") === "editar") {
+    const percentual = parseFloat(form.get("percentual") as string);
+    if (!percentual || percentual <= 0 || percentual > 100 || isNaN(percentual)) {
+      return { erro: "Percentual de comissão inválido (1–100)" };
+    }
     const { error } = await supabase.from("afiliadas").update({
       nome: form.get("nome"),
       email: form.get("email"),
+      percentual,
       pix: form.get("pix") || null,
       instagram: (form.get("instagram") as string)?.replace(/^@/, "").trim() || null,
       whatsapp: form.get("whatsapp") || null,
@@ -246,6 +251,7 @@ export default function PainelAfiliadaDetalhe() {
         <Link to="/painel/influencers" style={{ color: "#00C9A7", textDecoration: "none", fontWeight: "600", fontSize: "14px" }}>← Influencers</Link>
         <span style={{ color: "#ccc" }}>/</span>
         <h1 style={{ margin: 0, fontSize: "20px", fontWeight: "700" }}>{afiliada.nome}</h1>
+        <span style={{ background: "#f0fdf9", color: "#00C9A7", padding: "3px 10px", borderRadius: "4px", fontSize: "12px", fontWeight: "700" }}>{afiliada.percentual}% comissão</span>
         <span style={{ background: "#111", color: "#fff", padding: "3px 10px", borderRadius: "4px", fontSize: "11px", fontWeight: "700", letterSpacing: "1px" }}>{afiliada.cupom}</span>
         {!afiliada.ativo && <span style={{ background: "#fee2e2", color: "#e53e3e", padding: "3px 10px", borderRadius: "4px", fontSize: "11px", fontWeight: "700" }}>INATIVA</span>}
         <Link
@@ -385,6 +391,11 @@ export default function PainelAfiliadaDetalhe() {
                 <input name="cpf" defaultValue={afiliada.cpf ?? ""} placeholder="000.000.000-00" style={inputStyle} />
                 <label style={{ display: "block", fontSize: "12px", fontWeight: "700", color: "#888", marginBottom: "4px" }}>Chave PIX</label>
                 <input name="pix" defaultValue={afiliada.pix ?? ""} placeholder="CPF, e-mail ou telefone" style={inputStyle} />
+                <label style={{ display: "block", fontSize: "12px", fontWeight: "700", color: "#888", marginBottom: "4px" }}>Comissão (%)</label>
+                <div style={{ position: "relative", marginBottom: "10px" }}>
+                  <input name="percentual" type="number" min="1" max="100" step="0.5" defaultValue={afiliada.percentual ?? 10} style={{ ...inputStyle, paddingRight: "28px", marginBottom: 0 }} />
+                  <span style={{ position: "absolute", right: "10px", top: "50%", transform: "translateY(-50%)", color: "#888" }}>%</span>
+                </div>
                 {fetcher.data?.erro && (
                   <p style={{ color: "#e53e3e", fontSize: "12px", margin: "4px 0" }}>{fetcher.data.erro}</p>
                 )}

@@ -71,17 +71,8 @@ export async function backfillInfluencer(afiliadaId: string, cupom: string, dias
 
   if (pedidosDoCupom.length === 0) return { inseridos: 0 };
 
-  const { data: tiers } = await supabase.from("tiers_comissao").select("vendas_ate, percentual").order("vendas_ate", { ascending: true, nullsFirst: false });
-  const tiersOrdenados = [...(tiers ?? [])].sort((a, b) => {
-    if (a.vendas_ate == null) return 1;
-    if (b.vendas_ate == null) return -1;
-    return a.vendas_ate - b.vendas_ate;
-  });
-  const achaTier = (novoTotal: number) => tiersOrdenados.find((t) => t.vendas_ate == null || novoTotal <= t.vendas_ate) ?? { percentual: 10 };
-
-  const { data: existentesDoMes } = await supabase.from("pedidos").select("mes_referencia, valor_total").eq("afiliada_id", afiliadaId).eq("cancelado", false);
-  const acumuladoPorMes: Record<string, number> = {};
-  for (const p of existentesDoMes ?? []) acumuladoPorMes[p.mes_referencia] = (acumuladoPorMes[p.mes_referencia] ?? 0) + p.valor_total;
+  const { data: afiliadaAtual } = await supabase.from("afiliadas").select("percentual").eq("id", afiliadaId).single();
+  const percentual = afiliadaAtual?.percentual ?? 10;
 
   let inseridos = 0;
   for (const pedido of pedidosDoCupom) {
@@ -91,9 +82,7 @@ export async function backfillInfluencer(afiliadaId: string, cupom: string, dias
 
     const valorTotal = round2(parseFloat(pedido.totalPriceSet?.shopMoney?.amount ?? "0"));
     const mes = mesReferenciaDe(pedido.createdAt);
-    const novoTotal = (acumuladoPorMes[mes] ?? 0) + valorTotal;
-    const tier = achaTier(novoTotal);
-    const comissao = round2(valorTotal * (tier.percentual / 100));
+    const comissao = round2(valorTotal * (percentual / 100));
 
     const { error } = await supabase.from("pedidos").insert({
       shopify_order_id: shopifyOrderId,
@@ -107,7 +96,6 @@ export async function backfillInfluencer(afiliadaId: string, cupom: string, dias
       criado_em: pedido.createdAt,
     });
     if (!error) {
-      acumuladoPorMes[mes] = novoTotal;
       inseridos++;
     } else {
       console.error(`[backfill] erro ao inserir pedido ${pedido.name} (influencer):`, error.message);

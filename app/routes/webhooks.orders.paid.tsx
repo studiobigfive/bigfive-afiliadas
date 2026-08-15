@@ -31,7 +31,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   if (discountCodes.length > 0) {
     const { data: afiliada } = await supabase
       .from("afiliadas")
-      .select("id, nome, email, cupom")
+      .select("id, nome, email, cupom, percentual")
       .in("cupom", discountCodes)
       .eq("ativo", true)
       .single();
@@ -46,33 +46,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
       const isPrimeiroPedido = !pedidoExistente;
 
-      // Issue #1: exclui cancelados do acumulado para cálculo de tier correto
-      const { data: pedidosDoMes } = await supabase
-        .from("pedidos")
-        .select("valor_total")
-        .eq("afiliada_id", afiliada.id)
-        .eq("mes_referencia", mes)
-        .eq("cancelado", false)
-        .neq("shopify_order_id", shopifyOrderId);
-
-      const totalAcumulado = (pedidosDoMes ?? []).reduce((s: number, p: any) => s + p.valor_total, 0);
-      const novoTotal = totalAcumulado + valorTotal;
-
-      const { data: tiers } = await supabase
-        .from("tiers_comissao")
-        .select("vendas_ate, percentual")
-        .order("vendas_ate", { ascending: true, nullsFirst: false });
-
-      const tiersOrdenados = [...(tiers ?? [])].sort((a, b) => {
-        if (a.vendas_ate == null) return 1;
-        if (b.vendas_ate == null) return -1;
-        return a.vendas_ate - b.vendas_ate;
-      });
-
-      const tier = tiersOrdenados.find(t => t.vendas_ate == null || novoTotal <= t.vendas_ate)
-        ?? { percentual: 10 };
-
-      const comissaoBase = Math.round(valorTotal * (tier.percentual / 100) * 100) / 100;
+      // Comissão por percentual fixo cadastrado na influencer (tier desativado por enquanto)
+      const comissaoBase = Math.round(valorTotal * ((afiliada.percentual ?? 10) / 100) * 100) / 100;
       // Preserva qualquer reembolso já registrado (caso o webhook reentregue após um refund)
       const reembolsado = pedidoExistente?.valor_reembolsado ?? 0;
       const comissao = valorTotal > 0

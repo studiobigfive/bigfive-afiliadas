@@ -20,6 +20,10 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   if (intent === "criar") {
     const tipoCupom = form.get("tipo_cupom") as string;
     const cupom = (form.get("cupom") as string)?.toUpperCase().trim();
+    const percentual = parseFloat(form.get("percentual") as string);
+    if (!percentual || percentual <= 0 || percentual > 100 || isNaN(percentual)) {
+      return { erro: "Percentual de comissão inválido (1–100)" };
+    }
 
     if (tipoCupom === "novo") {
       const porcentagem = parseFloat(form.get("porcentagem") as string);
@@ -47,6 +51,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       nome: form.get("nome"),
       email: form.get("email"),
       cupom,
+      percentual,
       pix: form.get("pix"),
       instagram: (form.get("instagram") as string)?.replace(/^@/, "").trim() || null,
       whatsapp: form.get("whatsapp") || null,
@@ -183,6 +188,26 @@ export default function PainelAfiliadas() {
           )}
 
           <div style={{ marginBottom: "14px" }}>
+            <label style={labelStyle}>Comissão da influencer (%)</label>
+            <div style={{ position: "relative" }}>
+              <input
+                name="percentual"
+                type="number"
+                required
+                min="1"
+                max="100"
+                step="0.5"
+                defaultValue="10"
+                style={{ ...inputStyle, paddingRight: "36px" }}
+              />
+              <span style={{ position: "absolute", right: "12px", top: "50%", transform: "translateY(-50%)", color: "#888", fontWeight: "700" }}>%</span>
+            </div>
+            <span style={{ fontSize: "12px", color: "#999", marginTop: "4px", display: "block" }}>
+              Percentual que ela ganha sobre o valor de cada venda com o cupom dela
+            </span>
+          </div>
+
+          <div style={{ marginBottom: "14px" }}>
             <label style={labelStyle}>Instagram</label>
             <div style={{ position: "relative" }}>
               <span style={{ position: "absolute", left: "12px", top: "50%", transform: "translateY(-50%)", color: "#888", fontWeight: "700", fontSize: "14px" }}>@</span>
@@ -241,6 +266,7 @@ export default function PainelAfiliadas() {
               <div style={{ fontWeight: "600", marginBottom: "2px" }}>{a.nome}</div>
               <div style={{ fontSize: "13px", color: "#888", marginBottom: "4px" }}>{a.email}</div>
               {a.instagram && <div style={{ fontSize: "12px", color: "#00C9A7", marginBottom: "6px" }}>@{a.instagram}</div>}
+              <span style={{ background: "#f0fdf9", color: "#00C9A7", padding: "2px 8px", borderRadius: "4px", fontSize: "11px", fontWeight: "700", marginRight: "6px" }}>{a.percentual}% comissão</span>
               <span style={{ background: "#111", color: "#fff", padding: "2px 8px", borderRadius: "4px", fontSize: "11px", fontWeight: "700", letterSpacing: "1px" }}>{a.cupom}</span>
               {!a.ativo &&<span style={{ marginLeft: "6px", background: "#fee2e2", color: "#e53e3e", padding: "2px 8px", borderRadius: "4px", fontSize: "11px", fontWeight: "700" }}>INATIVA</span>}
             </div>

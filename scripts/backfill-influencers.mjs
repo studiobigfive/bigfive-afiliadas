@@ -82,25 +82,13 @@ console.log(`Loja: ${shop}`);
 
 const { data: afiliadas } = await supabase
   .from("afiliadas")
-  .select("id, nome, cupom")
+  .select("id, nome, cupom, percentual")
   .eq("ativo", true);
 
 if (!afiliadas || afiliadas.length === 0) {
   console.log("Nenhuma influencer ativa cadastrada. Nada a fazer.");
   process.exit(0);
 }
-
-const { data: tiers } = await supabase
-  .from("tiers_comissao")
-  .select("vendas_ate, percentual")
-  .order("vendas_ate", { ascending: true, nullsFirst: false });
-
-const tiersOrdenados = [...(tiers ?? [])].sort((a, b) => {
-  if (a.vendas_ate == null) return 1;
-  if (b.vendas_ate == null) return -1;
-  return a.vendas_ate - b.vendas_ate;
-});
-const achaTier = (novoTotal) => tiersOrdenados.find((t) => t.vendas_ate == null || novoTotal <= t.vendas_ate) ?? { percentual: 10 };
 
 const afiliadaPorCupom = new Map(afiliadas.map((a) => [a.cupom.toUpperCase(), a]));
 
@@ -126,18 +114,8 @@ let ignorados = 0;
 
 for (const [afiliadaId, pedidosDaAfiliada] of pedidosPorAfiliada) {
   const afiliada = afiliadas.find((a) => a.id === afiliadaId);
+  const percentual = afiliada.percentual ?? 10;
   pedidosDaAfiliada.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
-
-  // Baseline: total já acumulado por mês (pedidos que já existem no banco, não cancelados)
-  const { data: existentesDoMes } = await supabase
-    .from("pedidos")
-    .select("mes_referencia, valor_total")
-    .eq("afiliada_id", afiliadaId)
-    .eq("cancelado", false);
-  const acumuladoPorMes = {};
-  for (const p of existentesDoMes ?? []) {
-    acumuladoPorMes[p.mes_referencia] = (acumuladoPorMes[p.mes_referencia] ?? 0) + p.valor_total;
-  }
 
   for (const pedido of pedidosDaAfiliada) {
     const shopifyOrderId = String(pedido.id).split("/").pop();
@@ -151,10 +129,7 @@ for (const [afiliadaId, pedidosDaAfiliada] of pedidosPorAfiliada) {
 
     const valorTotal = round2(parseFloat(pedido.totalPriceSet?.shopMoney?.amount ?? "0"));
     const mes = mesReferenciaDe(pedido.createdAt);
-    const acumulado = acumuladoPorMes[mes] ?? 0;
-    const novoTotal = acumulado + valorTotal;
-    const tier = achaTier(novoTotal);
-    const comissao = round2(valorTotal * (tier.percentual / 100));
+    const comissao = round2(valorTotal * (percentual / 100));
 
     const { error } = await supabase.from("pedidos").insert({
       shopify_order_id: shopifyOrderId,
@@ -171,8 +146,7 @@ for (const [afiliadaId, pedidosDaAfiliada] of pedidosPorAfiliada) {
     if (error) {
       console.log(`  ERRO pedido ${pedido.name}: ${error.message}`);
     } else {
-      console.log(`  + ${pedido.name} → ${afiliada.nome} (${afiliada.cupom}, tier ${tier.percentual}%) = R$ ${comissao}`);
-      acumuladoPorMes[mes] = novoTotal;
+      console.log(`  + ${pedido.name} → ${afiliada.nome} (${afiliada.cupom}, ${percentual}%) = R$ ${comissao}`);
       inseridos++;
     }
   }

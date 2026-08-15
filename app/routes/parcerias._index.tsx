@@ -163,20 +163,12 @@ export default function AfiliadaDashboard() {
       </div>
 
       {/* Stats */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: "14px", marginBottom: "14px" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: "14px", marginBottom: "24px" }}>
         {statCard("Pedidos no período", String(pedidos.length))}
         {statCard("Vendas no período", fmt(totalVendas))}
         {statCard("Comissão efetiva", `${percentualEfetivo}%`, "#00C9A7")}
         {statCard("Comissão gerada", fmt(totalComissao))}
-      </div>
-
-      {/* A receber — destaque */}
-      <div style={{
-        background: aReceber > 0 ? "#fff5f5" : "#f0fff4", border: `1px solid ${aReceber > 0 ? "#fed7d7" : "#c6f6d5"}`,
-        borderRadius: "12px", padding: "16px 20px", marginBottom: "24px", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "8px",
-      }}>
-        <span style={{ fontSize: "13px", fontWeight: "600", color: "#666" }}>A receber no período</span>
-        <span style={{ fontSize: "24px", fontWeight: "800", color: aReceber > 0 ? "#e53e3e" : "#38a169" }}>{fmt(aReceber)}</span>
+        {statCard("A receber", fmt(aReceber), aReceber > 0 ? "#e53e3e" : "#38a169")}
       </div>
 
       {/* Vendas */}
