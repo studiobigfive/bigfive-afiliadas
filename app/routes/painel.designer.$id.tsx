@@ -29,6 +29,37 @@ function fmtMes(yyyymm: string) {
   return new Date(Number(a), Number(m) - 1).toLocaleString("pt-BR", { month: "long", year: "numeric" });
 }
 
+function fmtDataCurta(d: string) {
+  return new Date(d).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
+}
+
+function gerarTextoComprovanteDesigner(
+  pedidosDoMes: Array<{ nome_produto: string; valor_item: number; comissao: number; criado_em: string }>,
+  mesRef: string,
+  valorPago: number,
+  percentual: number
+) {
+  const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+  const [ano, mes] = mesRef.split("-");
+  const mesLabel = new Date(Number(ano), Number(mes) - 1).toLocaleString("pt-BR", { month: "long" });
+
+  const linhas = pedidosDoMes.map((p) =>
+    `${fmtDataCurta(p.criado_em)} — ${p.nome_produto || "Produto"}: ${fmt(p.valor_item)} → ${percentual}% = ${fmt(p.comissao)}`
+  );
+  const subtotal = pedidosDoMes.reduce((s, p) => s + p.comissao, 0);
+
+  return [
+    `💰 Vendas de ${mesLabel} usando seu design`,
+    "",
+    ...linhas,
+    `Subtotal: ${fmt(subtotal)}`,
+    "",
+    `➡️ Total a receber: ${fmt(valorPago)}`,
+    "",
+    "Já te mando o comprovante do pagamento 💚",
+  ].join("\n");
+}
+
 export const loader = async ({ request, params }: LoaderFunctionArgs) => {
   await requireAuth(request);
   const id = params.id!;
@@ -120,7 +151,18 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
       pago_em: new Date().toISOString(),
     });
     if (error) return { erro: error.message };
-    return { sucesso: "pago" };
+
+    // Busca os pedidos de verdade daquele mês (independente do filtro de período visível na tela)
+    // pra montar o comprovante que vai ser copiado e mandado pro designer.
+    const { data: pedidosDoMes } = await supabase
+      .from("pedidos_designer")
+      .select("nome_produto, valor_item, comissao, criado_em")
+      .eq("designer_id", id)
+      .eq("mes_referencia", mesRef)
+      .eq("cancelado", false)
+      .order("criado_em", { ascending: true });
+
+    return { sucesso: "pago", pedidosDoMes: pedidosDoMes ?? [], valorPago: valor, mesPago: mesRef };
   }
 
   if (intent === "deletar_pagamento") {
@@ -216,11 +258,16 @@ export default function PainelDesignerDetalhe() {
     erro?: string;
     erro_produto?: string;
     erro_editar?: string;
+    pedidosDoMes?: Array<{ nome_produto: string; valor_item: number; comissao: number; criado_em: string }>;
+    valorPago?: number;
+    mesPago?: string;
   }>();
   const buscaFetcher = useFetcher<{ produtos: Array<{ id: string; title: string; image: string | null }>; erro?: string | null }>();
   const [confirmado, setConfirmado] = useState(false);
   const [editando, setEditando] = useState(false);
   const [query, setQuery] = useState("");
+  const [comprovante, setComprovante] = useState<string | null>(null);
+  const [copiado, setCopiado] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
 
   const handleSearch = (value: string) => {
@@ -236,7 +283,13 @@ export default function PainelDesignerDetalhe() {
   const isPaying = fetcher.state !== "idle" && fetcher.formData?.get("intent") === "pagar";
 
   useEffect(() => {
-    if (fetcher.data?.sucesso === "pago") setConfirmado(false);
+    if (fetcher.data?.sucesso === "pago") {
+      setConfirmado(false);
+      if (fetcher.data.pedidosDoMes && fetcher.data.mesPago != null && fetcher.data.valorPago != null) {
+        setComprovante(gerarTextoComprovanteDesigner(fetcher.data.pedidosDoMes, fetcher.data.mesPago, fetcher.data.valorPago, designer.percentual));
+        setCopiado(false);
+      }
+    }
     if (fetcher.data?.sucesso === "editado") setEditando(false);
   }, [fetcher.data]);
 
@@ -694,6 +747,45 @@ export default function PainelDesignerDetalhe() {
           </div>
         </div>
       </div>
+
+      {/* Popup do comprovante pra copiar e mandar pro designer */}
+      {comprovante && (
+        <div
+          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: "20px" }}
+        >
+          <div
+            style={{ background: "#fff", borderRadius: "16px", padding: "28px", maxWidth: "480px", width: "100%", boxShadow: "0 10px 40px rgba(0,0,0,0.2)" }}
+          >
+            <p style={{ margin: "0 0 12px", fontSize: "16px", fontWeight: "800" }}>✓ Pagamento registrado</p>
+            <p style={{ margin: "0 0 12px", fontSize: "13px", color: "#888" }}>Copia e cola essa mensagem pra mandar pro designer:</p>
+            <textarea
+              readOnly
+              value={comprovante}
+              style={{ width: "100%", boxSizing: "border-box", minHeight: "220px", padding: "14px", border: "1px solid #ddd", borderRadius: "10px", fontSize: "13px", fontFamily: "inherit", lineHeight: "1.6", resize: "vertical", color: "#333" }}
+              onFocus={(e) => e.target.select()}
+            />
+            <div style={{ display: "flex", gap: "10px", marginTop: "14px" }}>
+              <button
+                type="button"
+                onClick={() => {
+                  navigator.clipboard.writeText(comprovante);
+                  setCopiado(true);
+                }}
+                style={{ flex: 1, padding: "11px", background: copiado ? "#38a169" : "#111", color: "#fff", border: "none", borderRadius: "8px", fontWeight: "700", fontSize: "14px", cursor: "pointer" }}
+              >
+                {copiado ? "✓ Copiado!" : "Copiar texto"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setComprovante(null)}
+                style={{ padding: "11px 18px", background: "#fff", color: "#666", border: "1px solid #ddd", borderRadius: "8px", fontWeight: "700", fontSize: "14px", cursor: "pointer" }}
+              >
+                Fechar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

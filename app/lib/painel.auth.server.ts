@@ -8,7 +8,7 @@ const { getSession, commitSession, destroySession } = createCookieSessionStorage
   cookie: {
     name: "bf_session",
     httpOnly: true,
-    maxAge: 60 * 60 * 8, // 8 horas
+    maxAge: 60 * 60 * 24 * 30, // 30 dias
     path: "/",
     sameSite: "lax",
     secrets: [process.env.DASHBOARD_SECRET || "bf-secret-change-me"],

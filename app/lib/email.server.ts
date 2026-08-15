@@ -104,6 +104,72 @@ export async function enviarNotificacaoAdmin(
   if (error) console.error("[email] Falha ao notificar admin:", error.message);
 }
 
+export async function enviarNotificacaoPedidoDesigner(
+  email: string,
+  nome: string,
+  nomeProduto: string,
+  valorItem: number,
+  comissao: number,
+  mes: string
+) {
+  const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+  const [ano, num] = mes.split("-");
+  const mesLabel = new Date(Number(ano), Number(num) - 1).toLocaleString("pt-BR", { month: "long", year: "numeric" });
+
+  const { error } = await resend.emails.send({
+    from: process.env.RESEND_FROM || "onboarding@resend.dev",
+    to: email,
+    subject: `Seu design foi vendido! Você ganhou ${fmt(comissao)}`,
+    html: wrapHtml(`
+      <div style="font-family:Inter,sans-serif;max-width:480px;margin:40px auto;padding:40px 24px;background:#fff;border-radius:16px;">
+        <div style="font-weight:800;font-size:18px;letter-spacing:3px;margin-bottom:32px;color:#111;">BIGFIVE</div>
+        <p style="font-size:15px;color:#333;margin:0 0 8px;">🎉 Boa notícia, <strong>${nome}</strong>!</p>
+        <p style="font-size:14px;color:#666;margin:0 0 28px;">Seu design <strong>${nomeProduto}</strong> foi vendido e você acabou de ganhar uma comissão:</p>
+
+        <div style="background:#f0fdf9;border:1px solid #a7f3d0;border-radius:12px;padding:24px;margin-bottom:24px;text-align:center;">
+          <p style="margin:0 0 4px;font-size:12px;color:#666;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">Comissão gerada</p>
+          <p style="margin:0;font-size:40px;font-weight:800;color:#00C9A7;">${fmt(comissao)}</p>
+          <p style="margin:8px 0 0;font-size:13px;color:#888;">sobre um item de ${fmt(valorItem)}</p>
+        </div>
+
+        <p style="font-size:13px;color:#888;text-align:center;margin:0;">
+          Mês de referência: <strong style="color:#444;text-transform:capitalize;">${mesLabel}</strong>
+        </p>
+
+        <p style="font-size:12px;color:#bbb;text-align:center;margin:24px 0 0;">
+          Você está recebendo este e-mail porque participa do Programa de Parcerias BigFive Hype.
+        </p>
+      </div>
+    `),
+  });
+
+  if (error) {
+    console.error("[email] Falha ao enviar notificação de pedido (designer):", error.message);
+  }
+}
+
+export async function enviarNotificacaoCancelamentoDesigner(email: string, nome: string, nomeProduto: string, comissao: number) {
+  const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+
+  const { error } = await resend.emails.send({
+    from: process.env.RESEND_FROM || "onboarding@resend.dev",
+    to: email,
+    subject: `Atualização sobre sua comissão BigFive`,
+    html: wrapHtml(`
+      <div style="font-family:Inter,sans-serif;max-width:480px;margin:40px auto;padding:40px 24px;background:#fff;border-radius:16px;">
+        <div style="font-weight:800;font-size:18px;letter-spacing:3px;margin-bottom:32px;color:#111;">BIGFIVE</div>
+        <p style="font-size:15px;color:#333;margin:0 0 8px;">Olá, <strong>${nome}</strong>.</p>
+        <p style="font-size:14px;color:#666;margin:0 0 24px;">
+          Um pedido com seu design <strong>${nomeProduto}</strong> foi <strong>cancelado</strong>.
+          A comissão de <strong style="color:#e53e3e;">${fmt(comissao)}</strong> foi removida do seu saldo.
+        </p>
+        <p style="font-size:13px;color:#999;margin:0;">Se tiver dúvidas, entre em contato com a equipe BigFive Hype.</p>
+      </div>
+    `),
+  });
+  if (error) console.error("[email] Falha ao notificar cancelamento (designer):", error.message);
+}
+
 export async function enviarNotificacaoCancelamento(email: string, nome: string, comissao: number) {
   const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 

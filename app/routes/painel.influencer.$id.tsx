@@ -82,14 +82,27 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
   const form = await request.formData();
 
   if (form.get("intent") === "pagar") {
+    const valor = parseFloat(form.get("valor") as string);
+    const mesRef = form.get("mes") as string;
     await supabase.from("pagamentos").insert({
       afiliada_id: id,
-      valor: parseFloat(form.get("valor") as string),
-      mes_referencia: form.get("mes"),
+      valor,
+      mes_referencia: mesRef,
       observacao: form.get("observacao") || null,
       pago_em: new Date().toISOString(), // Issue #5
     });
-    return { sucesso: "pago" };
+
+    // Busca os pedidos de verdade daquele mês (independente do filtro de período visível na tela)
+    // pra montar o comprovante que vai ser copiado e mandado pra influencer.
+    const { data: pedidosDoMes } = await supabase
+      .from("pedidos")
+      .select("shopify_order_id, valor_total, comissao, criado_em")
+      .eq("afiliada_id", id)
+      .eq("mes_referencia", mesRef)
+      .eq("cancelado", false)
+      .order("criado_em", { ascending: true });
+
+    return { sucesso: "pago", pedidosDoMes: pedidosDoMes ?? [], valorPago: valor, mesPago: mesRef };
   }
 
   if (form.get("intent") === "deletar_pagamento") {
@@ -125,17 +138,62 @@ function fmtMes(yyyymm: string) {
   return new Date(Number(a), Number(m) - 1).toLocaleString("pt-BR", { month: "long", year: "numeric" });
 }
 
+function fmtDataCurta(d: string) {
+  return new Date(d).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
+}
+
+function gerarTextoComprovante(
+  pedidosDoMes: Array<{ shopify_order_id: string; valor_total: number; comissao: number; criado_em: string }>,
+  mesRef: string,
+  valorPago: number
+) {
+  const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+  const [ano, mes] = mesRef.split("-");
+  const mesLabel = new Date(Number(ano), Number(mes) - 1).toLocaleString("pt-BR", { month: "long" });
+
+  const linhas = pedidosDoMes.map((p) => {
+    const percentual = p.valor_total > 0 ? Math.round((p.comissao / p.valor_total) * 100) : 0;
+    return `${fmtDataCurta(p.criado_em)} — Pedido #${p.shopify_order_id}: ${fmt(p.valor_total)} → ${percentual}% = ${fmt(p.comissao)}`;
+  });
+  const subtotal = pedidosDoMes.reduce((s, p) => s + p.comissao, 0);
+
+  return [
+    `💰 Vendas de ${mesLabel} usando seu cupom`,
+    "",
+    ...linhas,
+    `Subtotal: ${fmt(subtotal)}`,
+    "",
+    `➡️ Total a receber: ${fmt(valorPago)}`,
+    "",
+    "Já te mando o comprovante do pagamento 💚",
+  ].join("\n");
+}
+
 export default function PainelAfiliadaDetalhe() {
   const { afiliada, pedidos, pagamentos, aReceber, totalComissao, de, ate, mesPagamento, mesesArray, truncated } =
     useLoaderData<typeof loader>();
-  const fetcher = useFetcher<{ sucesso?: string; erro?: string }>();
+  const fetcher = useFetcher<{
+    sucesso?: string;
+    erro?: string;
+    pedidosDoMes?: Array<{ shopify_order_id: string; valor_total: number; comissao: number; criado_em: string }>;
+    valorPago?: number;
+    mesPago?: string;
+  }>();
   const [searchParams] = useSearchParams();
   const [editando, setEditando] = useState(false);
   const [confirmado, setConfirmado] = useState(false);
+  const [comprovante, setComprovante] = useState<string | null>(null);
+  const [copiado, setCopiado] = useState(false);
 
-  // Reseta checkbox após pagamento registrado com sucesso
+  // Reseta checkbox e monta o texto do comprovante após pagamento registrado com sucesso
   useEffect(() => {
-    if (fetcher.data?.sucesso === "pago") setConfirmado(false);
+    if (fetcher.data?.sucesso === "pago") {
+      setConfirmado(false);
+      if (fetcher.data.pedidosDoMes && fetcher.data.mesPago != null && fetcher.data.valorPago != null) {
+        setComprovante(gerarTextoComprovante(fetcher.data.pedidosDoMes, fetcher.data.mesPago, fetcher.data.valorPago));
+        setCopiado(false);
+      }
+    }
   }, [fetcher.data]);
 
   if (!afiliada) return <p>Influencer não encontrada.</p>;
@@ -414,6 +472,45 @@ export default function PainelAfiliadaDetalhe() {
           </div>
         </div>
       </div>
+
+      {/* Popup do comprovante pra copiar e mandar pra influencer */}
+      {comprovante && (
+        <div
+          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: "20px" }}
+        >
+          <div
+            style={{ background: "#fff", borderRadius: "16px", padding: "28px", maxWidth: "480px", width: "100%", boxShadow: "0 10px 40px rgba(0,0,0,0.2)" }}
+          >
+            <p style={{ margin: "0 0 12px", fontSize: "16px", fontWeight: "800" }}>✓ Pagamento registrado</p>
+            <p style={{ margin: "0 0 12px", fontSize: "13px", color: "#888" }}>Copia e cola essa mensagem pra mandar pra influencer:</p>
+            <textarea
+              readOnly
+              value={comprovante}
+              style={{ width: "100%", boxSizing: "border-box", minHeight: "220px", padding: "14px", border: "1px solid #ddd", borderRadius: "10px", fontSize: "13px", fontFamily: "inherit", lineHeight: "1.6", resize: "vertical", color: "#333" }}
+              onFocus={(e) => e.target.select()}
+            />
+            <div style={{ display: "flex", gap: "10px", marginTop: "14px" }}>
+              <button
+                type="button"
+                onClick={() => {
+                  navigator.clipboard.writeText(comprovante);
+                  setCopiado(true);
+                }}
+                style={{ flex: 1, padding: "11px", background: copiado ? "#38a169" : "#111", color: "#fff", border: "none", borderRadius: "8px", fontWeight: "700", fontSize: "14px", cursor: "pointer" }}
+              >
+                {copiado ? "✓ Copiado!" : "Copiar texto"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setComprovante(null)}
+                style={{ padding: "11px 18px", background: "#fff", color: "#666", border: "1px solid #ddd", borderRadius: "8px", fontWeight: "700", fontSize: "14px", cursor: "pointer" }}
+              >
+                Fechar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

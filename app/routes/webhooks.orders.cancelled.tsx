@@ -1,7 +1,7 @@
 import type { ActionFunctionArgs } from "react-router";
 import { authenticate } from "../shopify.server";
 import { supabase } from "../lib/supabase.server";
-import { enviarNotificacaoCancelamento } from "../lib/email.server";
+import { enviarNotificacaoCancelamento, enviarNotificacaoCancelamentoDesigner } from "../lib/email.server";
 
 export const action = async ({ request }: ActionFunctionArgs) => {
   const { payload, topic } = await authenticate.webhook(request);
@@ -21,6 +21,13 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     console.error("[webhook/cancelled] erro ao buscar pedido:", pedidoErr.message);
   }
 
+  // Busca pedidos de designers (podem ser vários produtos no mesmo pedido) ANTES de cancelar
+  const { data: pedidosDesigner } = await supabase
+    .from("pedidos_designer")
+    .select("id, comissao, nome_produto, designers(nome, email)")
+    .eq("shopify_order_id", shopifyOrderId)
+    .eq("cancelado", false);
+
   // Marca pedido de afiliada como cancelado
   await supabase
     .from("pedidos")
@@ -39,6 +46,16 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     if (afiliada.email) {
       enviarNotificacaoCancelamento(afiliada.email, afiliada.nome, pedido.comissao).catch(
         (e) => console.error("[webhook] Falha ao notificar cancelamento:", e.message)
+      );
+    }
+  }
+
+  // Notifica cada designer afetado (pedido pode ter produtos de designers diferentes)
+  for (const pd of pedidosDesigner ?? []) {
+    const designer = pd.designers as any;
+    if (designer?.email) {
+      enviarNotificacaoCancelamentoDesigner(designer.email, designer.nome, pd.nome_produto, pd.comissao).catch(
+        (e) => console.error("[webhook] Falha ao notificar cancelamento (designer):", e.message)
       );
     }
   }

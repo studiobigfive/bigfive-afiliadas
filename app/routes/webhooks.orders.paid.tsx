@@ -2,7 +2,7 @@ import type { ActionFunctionArgs } from "react-router";
 import { authenticate } from "../shopify.server";
 import { supabase } from "../lib/supabase.server";
 import { mesAtual } from "../lib/comissao";
-import { enviarNotificacaoPedido, enviarNotificacaoAdmin } from "../lib/email.server";
+import { enviarNotificacaoPedido, enviarNotificacaoAdmin, enviarNotificacaoPedidoDesigner } from "../lib/email.server";
 
 const PORTAL_URL = process.env.APP_URL ? `${process.env.APP_URL}/parcerias` : "https://parcerias.bigfivehype.com.br/parcerias";
 
@@ -109,7 +109,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   if (productIds.length > 0) {
     const { data: vinculados } = await supabase
       .from("designer_produtos")
-      .select("designer_id, shopify_product_id, nome_produto, designers(id, nome, percentual, cupom, ativo)")
+      .select("designer_id, shopify_product_id, nome_produto, designers(id, nome, email, percentual, cupom, ativo)")
       .in("shopify_product_id", productIds);
 
     // Mapeia product_id → TODAS as linhas daquele produto (podem ser várias: tamanhos/cores diferentes)
@@ -137,13 +137,25 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         itens.reduce((s, li) => s + parseFloat(li.price) * (li.quantity ?? 1), 0) * 100
       ) / 100;
       const comissaoDesigner = Math.round(valorItem * (d.percentual / 100) * 100) / 100;
+      const nomeProduto = v.nome_produto || itens[0].title || itens[0].name || "";
+
+      // Verifica se já existe ANTES do upsert para não reenviar notificação
+      const { data: pedidoDesignerExistente } = await supabase
+        .from("pedidos_designer")
+        .select("id")
+        .eq("shopify_order_id", shopifyOrderId)
+        .eq("designer_id", v.designer_id)
+        .eq("shopify_product_id", v.shopify_product_id)
+        .single();
+
+      const isPrimeiroPedidoDesigner = !pedidoDesignerExistente;
 
       await supabase.from("pedidos_designer").upsert(
         {
           shopify_order_id: shopifyOrderId,
           designer_id: v.designer_id,
           shopify_product_id: v.shopify_product_id,
-          nome_produto: v.nome_produto || itens[0].title || itens[0].name || "",
+          nome_produto: nomeProduto,
           valor_item: valorItem,
           comissao: comissaoDesigner,
           comissao_base: comissaoDesigner,
@@ -151,6 +163,12 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         },
         { onConflict: "shopify_order_id,designer_id,shopify_product_id" }
       );
+
+      if (isPrimeiroPedidoDesigner && d.email) {
+        enviarNotificacaoPedidoDesigner(d.email, d.nome, nomeProduto, valorItem, comissaoDesigner, mes).catch(
+          (e) => console.error("[webhook] Falha ao notificar designer:", e.message)
+        );
+      }
     }
   }
 
