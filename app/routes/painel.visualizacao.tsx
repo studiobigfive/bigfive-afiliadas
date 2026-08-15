@@ -195,6 +195,27 @@ export default function VisualizacaoParceiro() {
   const totalVendas = pedidos.filter((p) => !p.cancelado).reduce((s, p) => s + p.valor, 0);
   const percentualEfetivo = totalVendas > 0 ? Math.round((totalComissao / totalVendas) * 1000) / 10 : 0;
 
+  const exportarCSV = () => {
+    const cabecalho = tipo === "designer"
+      ? ["Pedido", "Produto", "Status", "Valor", "Comissão", "Data"]
+      : ["Pedido", "Status", "Venda", "Comissão", "Data"];
+    const linhas = [
+      cabecalho,
+      ...pedidos.map((p) =>
+        tipo === "designer"
+          ? [p.label, p.sublabel ?? "", p.cancelado ? "Cancelado" : "Pago", p.valor.toFixed(2).replace(".", ","), p.comissao.toFixed(2).replace(".", ","), fmtDate(p.criado_em)]
+          : [p.label, p.cancelado ? "Cancelado" : "Pago", p.valor.toFixed(2).replace(".", ","), p.comissao.toFixed(2).replace(".", ","), fmtDate(p.criado_em)]
+      ),
+    ];
+    const csv = linhas.map((l) => l.map((c) => `"${c}"`).join(";")).join("\n");
+    const url = URL.createObjectURL(new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" }));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${(pessoa?.nome ?? "pedidos").toLowerCase().replace(/\s+/g, "_")}_${de}_${ate}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   const statCard = (label: string, value: string, color = "#111") => (
     <div style={{ background: "#fff", borderRadius: "12px", padding: "20px", boxShadow: "0 1px 3px rgba(0,0,0,0.08)" }}>
       <p style={{ margin: "0 0 8px", fontSize: "11px", color: "#888", fontWeight: "700", textTransform: "uppercase", letterSpacing: "0.5px" }}>{label}</p>
@@ -266,11 +287,16 @@ export default function VisualizacaoParceiro() {
 
           {/* Vendas */}
           <div style={{ background: "#fff", borderRadius: "12px", boxShadow: "0 1px 3px rgba(0,0,0,0.08)", overflow: "hidden", marginBottom: "24px" }}>
-            <div style={{ padding: "18px 24px", borderBottom: "1px solid #eee" }}>
+            <div style={{ padding: "18px 24px", borderBottom: "1px solid #eee", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "10px" }}>
               <h2 style={{ margin: 0, fontSize: "15px", fontWeight: "700", textTransform: "uppercase", letterSpacing: "0.5px" }}>
                 Vendas
                 <span style={{ marginLeft: "8px", fontSize: "13px", color: "#aaa", fontWeight: "400", textTransform: "none", letterSpacing: 0 }}>({pedidos.length}{truncated ? "+" : ""})</span>
               </h2>
+              {pedidos.length > 0 && (
+                <button type="button" onClick={exportarCSV} style={{ padding: "5px 12px", border: "1px solid #ddd", borderRadius: "6px", background: "#fff", fontSize: "12px", fontWeight: "600", color: "#555", cursor: "pointer" }}>
+                  ↓ Exportar CSV
+                </button>
+              )}
             </div>
 
             {/* Busca + filtro de período */}

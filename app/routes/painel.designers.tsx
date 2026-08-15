@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import type { LoaderFunctionArgs, ActionFunctionArgs } from "react-router";
 import { useLoaderData, useFetcher, Link } from "react-router";
 import { requireAuth } from "../lib/painel.auth.server";
@@ -69,6 +69,16 @@ export default function PainelDesigners() {
   const sucesso = fetcher.data?.sucesso;
   const [formKey, setFormKey] = useState(0);
   const [menuAberto, setMenuAberto] = useState<string | null>(null);
+  const menuRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!menuAberto) return;
+    const fecharSeClicarFora = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuAberto(null);
+    };
+    document.addEventListener("mousedown", fecharSeClicarFora);
+    return () => document.removeEventListener("mousedown", fecharSeClicarFora);
+  }, [menuAberto]);
 
   useEffect(() => {
     if (sucesso) setFormKey(k => k + 1);
@@ -163,7 +173,7 @@ export default function PainelDesigners() {
       </div>
 
       {/* Lista */}
-      <div style={{ background: "#fff", borderRadius: "12px", boxShadow: "0 1px 3px rgba(0,0,0,0.08)", overflow: "hidden" }}>
+      <div style={{ background: "#fff", borderRadius: "12px", boxShadow: "0 1px 3px rgba(0,0,0,0.08)" }}>
         <div style={{ padding: "18px 24px", borderBottom: "1px solid #eee" }}>
           <h2 style={{ margin: 0, fontSize: "16px", fontWeight: "700" }}>Designers ({designers.length})</h2>
         </div>
@@ -201,9 +211,9 @@ export default function PainelDesigners() {
               </button>
 
               {menuAberto === d.id && (
-                <>
-                  <div style={{ position: "fixed", inset: 0, zIndex: 10 }} onClick={() => setMenuAberto(null)} />
-                  <div style={{
+                <div
+                  ref={menuRef}
+                  style={{
                     position: "absolute", right: 0, top: "calc(100% + 4px)", background: "#fff",
                     border: "1px solid #eee", borderRadius: "8px", boxShadow: "0 4px 16px rgba(0,0,0,0.12)",
                     zIndex: 20, minWidth: "160px", overflow: "hidden",
@@ -248,8 +258,7 @@ export default function PainelDesigners() {
                         ✕ Excluir
                       </button>
                     </fetcher.Form>
-                  </div>
-                </>
+                </div>
               )}
             </div>
           </div>
