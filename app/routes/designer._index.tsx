@@ -197,30 +197,33 @@ export default function DesignerDashboard() {
               style={{ width: "100%", boxSizing: "border-box", padding: "9px 14px", border: "1px solid #ddd", borderRadius: "8px", fontSize: "14px" }}
             />
           </div>
-          <Form method="get" style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
+          <Form method="get" style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
             <select
               value={mesSelecionado}
               onChange={(e) => {
                 const opcao = opcoesMes.find((o) => o.mes === e.target.value);
                 if (opcao) window.location.href = `?de=${opcao.de}&ate=${opcao.ate}`;
               }}
-              style={{ ...dateInput, cursor: "pointer", textTransform: "capitalize" }}
+              style={{ ...dateInput, width: "100%", boxSizing: "border-box", cursor: "pointer", textTransform: "capitalize" }}
             >
               {opcoesMes.map((o) => (
                 <option key={o.mes} value={o.mes} style={{ textTransform: "capitalize" }}>{o.label}</option>
               ))}
               {!mesSelecionado && <option value="">Personalizado</option>}
             </select>
-            <div className="bf-divider" style={{ width: "1px", height: "24px", background: "#e5e5e5", margin: "0 6px" }} />
-            <input type="date" name="de" defaultValue={de} style={dateInput} />
-            <span style={{ color: "#aaa", fontSize: "13px" }}>até</span>
-            <input type="date" name="ate" defaultValue={ate} style={dateInput} />
-            <button type="submit" style={{ padding: "8px 18px", background: "#00C9A7", color: "#fff", border: "none", borderRadius: "8px", fontWeight: "700", fontSize: "13px", cursor: "pointer" }}>
-              Aplicar
-            </button>
-            <a href="?" style={{ padding: "8px 18px", background: "#fff", color: "#666", border: "1px solid #ddd", borderRadius: "8px", fontWeight: "700", fontSize: "13px", textDecoration: "none" }}>
-              Limpar
-            </a>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <input type="date" name="de" defaultValue={de} style={{ ...dateInput, flex: 1, minWidth: 0 }} />
+              <span style={{ color: "#aaa", fontSize: "13px", flexShrink: 0 }}>-</span>
+              <input type="date" name="ate" defaultValue={ate} style={{ ...dateInput, flex: 1, minWidth: 0 }} />
+            </div>
+            <div style={{ display: "flex", gap: "8px" }}>
+              <button type="submit" style={{ flex: 1, boxSizing: "border-box", padding: "9px 14px", background: "#00C9A7", color: "#fff", border: "1px solid transparent", borderRadius: "8px", fontWeight: "700", fontSize: "14px", cursor: "pointer" }}>
+                Aplicar
+              </button>
+              <a href="?" style={{ boxSizing: "border-box", padding: "9px 14px", background: "#fff", color: "#666", border: "1px solid #ddd", borderRadius: "8px", fontWeight: "700", fontSize: "14px", textDecoration: "none", display: "flex", alignItems: "center" }}>
+                Limpar
+              </a>
+            </div>
           </Form>
         </div>
 
