@@ -315,44 +315,46 @@ export default function VisualizacaoParceiro() {
                 Exibindo os 100 pedidos mais recentes. Ajuste o período para ver registros específicos.
               </div>
             )}
-            <table style={{ width: "100%", borderCollapse: "collapse" }}>
-              <thead>
-                <tr style={{ background: "#f9f9f9", borderBottom: "1px solid #eee" }}>
-                  {[tipo === "designer" ? "Pedido/Produto" : "Pedido/Data", "Status", "Venda/Comissão"].map((h) => <th key={h} style={th}>{h}</th>)}
-                </tr>
-              </thead>
-              <tbody>
-                {pedidosPagina.length === 0 && (
-                  <tr><td colSpan={3} style={{ ...td, textAlign: "center", color: "#999" }}>Nenhum pedido encontrado</td></tr>
-                )}
-                {pedidosPagina.map((p, i) => (
-                  <tr key={`${p.id}-${i}`} style={{ borderBottom: "1px solid #f5f5f5", opacity: p.cancelado ? 0.5 : 1 }}>
-                    <td style={td}>
-                      <div style={{ fontWeight: "600" }}>{p.label}</div>
-                      <div style={{ fontSize: "12px", color: "#999", marginTop: "2px" }}>
-                        {p.sublabel ? `${p.sublabel} · ` : ""}{fmtDateTime(p.criado_em)}
-                      </div>
-                    </td>
-                    <td style={td}>
-                      <span style={{
-                        padding: "3px 10px", borderRadius: "999px", fontSize: "11px", fontWeight: "700",
-                        background: p.cancelado ? "#fee2e2" : "#f0fff4",
-                        color: p.cancelado ? "#e53e3e" : "#38a169",
-                        border: `1px solid ${p.cancelado ? "#fecaca" : "#c6f6d5"}`,
-                      }}>
-                        {p.cancelado ? "Cancelado" : "Pago"}
-                      </span>
-                    </td>
-                    <td style={td}>
-                      <div style={{ color: "#666" }}>{fmt(p.valor)}</div>
-                      <div style={{ fontWeight: "700", color: p.cancelado ? "#ccc" : "#00C9A7", marginTop: "2px" }}>
-                        {p.cancelado ? <s>{fmt(p.comissao)}</s> : fmt(p.comissao)}
-                      </div>
-                    </td>
+            <div style={{ overflowX: "auto" }}>
+              <table style={{ width: "100%", minWidth: "420px", borderCollapse: "collapse" }}>
+                <thead>
+                  <tr style={{ background: "#f9f9f9", borderBottom: "1px solid #eee" }}>
+                    {[tipo === "designer" ? "Pedido/Produto" : "Pedido/Data", "Status", "Venda/Comissão"].map((h) => <th key={h} style={th}>{h}</th>)}
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {pedidosPagina.length === 0 && (
+                    <tr><td colSpan={3} style={{ ...td, textAlign: "center", color: "#999" }}>Nenhum pedido encontrado</td></tr>
+                  )}
+                  {pedidosPagina.map((p, i) => (
+                    <tr key={`${p.id}-${i}`} style={{ borderBottom: "1px solid #f5f5f5", opacity: p.cancelado ? 0.5 : 1 }}>
+                      <td style={td}>
+                        <div style={{ fontWeight: "600" }}>{p.label}</div>
+                        <div style={{ fontSize: "12px", color: "#999", marginTop: "2px" }}>
+                          {p.sublabel ? `${p.sublabel} · ` : ""}{fmtDateTime(p.criado_em)}
+                        </div>
+                      </td>
+                      <td style={td}>
+                        <span style={{
+                          padding: "3px 10px", borderRadius: "999px", fontSize: "11px", fontWeight: "700",
+                          background: p.cancelado ? "#fee2e2" : "#f0fff4",
+                          color: p.cancelado ? "#e53e3e" : "#38a169",
+                          border: `1px solid ${p.cancelado ? "#fecaca" : "#c6f6d5"}`,
+                        }}>
+                          {p.cancelado ? "Cancelado" : "Pago"}
+                        </span>
+                      </td>
+                      <td style={td}>
+                        <div style={{ color: "#666" }}>{fmt(p.valor)}</div>
+                        <div style={{ fontWeight: "700", color: p.cancelado ? "#ccc" : "#00C9A7", marginTop: "2px" }}>
+                          {p.cancelado ? <s>{fmt(p.comissao)}</s> : fmt(p.comissao)}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
 
             {/* Paginação */}
             {pedidosFiltrados.length > 0 && (
@@ -396,26 +398,28 @@ export default function VisualizacaoParceiro() {
             <div style={{ padding: "18px 24px", borderBottom: "1px solid #eee" }}>
               <h2 style={{ margin: 0, fontSize: "15px", fontWeight: "700" }}>Pagamentos registrados</h2>
             </div>
-            <table style={{ width: "100%", borderCollapse: "collapse" }}>
-              <thead>
-                <tr style={{ background: "#f9f9f9", borderBottom: "1px solid #eee" }}>
-                  {["Data", "Mês ref.", "Valor", "Observação"].map((h) => <th key={h} style={th}>{h}</th>)}
-                </tr>
-              </thead>
-              <tbody>
-                {pagamentos.length === 0 && (
-                  <tr><td colSpan={4} style={{ ...td, textAlign: "center", color: "#999" }}>Nenhum pagamento neste período</td></tr>
-                )}
-                {pagamentos.map((p, i) => (
-                  <tr key={i} style={{ borderBottom: "1px solid #f5f5f5" }}>
-                    <td style={{ ...td, color: "#666" }}>{fmtDate(p.pago_em)}</td>
-                    <td style={{ ...td, color: "#888", fontSize: "13px", textTransform: "capitalize" }}>{fmtMes(p.mes_referencia)}</td>
-                    <td style={{ ...td, fontWeight: "700", color: "#38a169" }}>{fmt(p.valor)}</td>
-                    <td style={{ ...td, color: "#888", fontSize: "13px" }}>{p.observacao || "—"}</td>
+            <div style={{ overflowX: "auto" }}>
+              <table style={{ width: "100%", minWidth: "420px", borderCollapse: "collapse" }}>
+                <thead>
+                  <tr style={{ background: "#f9f9f9", borderBottom: "1px solid #eee" }}>
+                    {["Data", "Mês ref.", "Valor", "Observação"].map((h) => <th key={h} style={th}>{h}</th>)}
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {pagamentos.length === 0 && (
+                    <tr><td colSpan={4} style={{ ...td, textAlign: "center", color: "#999" }}>Nenhum pagamento neste período</td></tr>
+                  )}
+                  {pagamentos.map((p, i) => (
+                    <tr key={i} style={{ borderBottom: "1px solid #f5f5f5" }}>
+                      <td style={{ ...td, color: "#666" }}>{fmtDate(p.pago_em)}</td>
+                      <td style={{ ...td, color: "#888", fontSize: "13px", textTransform: "capitalize" }}>{fmtMes(p.mes_referencia)}</td>
+                      <td style={{ ...td, fontWeight: "700", color: "#38a169" }}>{fmt(p.valor)}</td>
+                      <td style={{ ...td, color: "#888", fontSize: "13px" }}>{p.observacao || "—"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         </>
       )}
