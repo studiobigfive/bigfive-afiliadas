@@ -4,6 +4,7 @@ import { useLoaderData, useFetcher, Link } from "react-router";
 import { requireAuth } from "../lib/painel.auth.server";
 import { supabase } from "../lib/supabase.server";
 import { criarCupomShopify, verificarCupomShopify } from "../lib/shopify-admin.server";
+import { backfillInfluencer } from "../lib/backfill.server";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   await requireAuth(request);
@@ -42,7 +43,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       }
     }
 
-    const { error } = await supabase.from("afiliadas").insert({
+    const { data: novaAfiliada, error } = await supabase.from("afiliadas").insert({
       nome: form.get("nome"),
       email: form.get("email"),
       cupom,
@@ -50,15 +51,31 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       instagram: (form.get("instagram") as string)?.replace(/^@/, "").trim() || null,
       whatsapp: form.get("whatsapp") || null,
       cpf: form.get("cpf") || null,
-    });
+    }).select("id").single();
     if (error) return { erro: error.message };
-    return { sucesso: true };
+
+    // Recupera vendas antigas feitas com esse cupom antes de ela ser cadastrada aqui
+    let vendasRecuperadas = 0;
+    try {
+      const resultado = await backfillInfluencer(novaAfiliada.id, cupom);
+      vendasRecuperadas = resultado.inseridos;
+    } catch (e: any) {
+      console.error("[painel.influencers] falha no backfill automático:", e.message);
+    }
+
+    return { sucesso: true, vendasRecuperadas };
   }
 
   if (intent === "toggle") {
     const id = form.get("id");
     const ativo = form.get("ativo") === "true";
     await supabase.from("afiliadas").update({ ativo: !ativo }).eq("id", id);
+    return { sucesso: true };
+  }
+
+  if (intent === "excluir") {
+    const id = form.get("id") as string;
+    await supabase.from("afiliadas").delete().eq("id", id);
     return { sucesso: true };
   }
 
@@ -75,12 +92,13 @@ const labelStyle: React.CSSProperties = {
 
 export default function PainelAfiliadas() {
   const { afiliadas } = useLoaderData<typeof loader>();
-  const fetcher = useFetcher<{ erro?: string; sucesso?: boolean }>();
+  const fetcher = useFetcher<{ erro?: string; sucesso?: boolean; vendasRecuperadas?: number }>();
   const criando = fetcher.state !== "idle";
   const [tipoCupom, setTipoCupom] = useState<"existente" | "novo">("existente");
 
   const erro = fetcher.data?.erro;
   const sucesso = fetcher.data?.sucesso;
+  const vendasRecuperadas = fetcher.data?.vendasRecuperadas ?? 0;
 
   const tabStyle = (active: boolean): React.CSSProperties => ({
     flex: 1, padding: "9px", border: "none", cursor: "pointer", fontWeight: "700",
@@ -194,6 +212,7 @@ export default function PainelAfiliadas() {
           {sucesso && (
             <div style={{ background: "#f0fff4", color: "#38a169", padding: "10px 12px", borderRadius: "8px", fontSize: "13px", marginBottom: "14px" }}>
               Influencer cadastrada com sucesso!
+              {vendasRecuperadas > 0 && ` Recuperamos ${vendasRecuperadas} venda(s) antiga(s) que já usavam esse cupom.`}
             </div>
           )}
 
@@ -232,6 +251,16 @@ export default function PainelAfiliadas() {
                 <input type="hidden" name="ativo" value={String(a.ativo)} />
                 <button type="submit" style={{ padding: "6px 14px", border: "1px solid", borderColor: a.ativo ? "#e53e3e" : "#38a169", color: a.ativo ? "#e53e3e" : "#38a169", background: "transparent", borderRadius: "6px", cursor: "pointer", fontSize: "13px", fontWeight: "600" }}>
                   {a.ativo ? "Desativar" : "Ativar"}
+                </button>
+              </fetcher.Form>
+              <fetcher.Form
+                method="post"
+                onSubmit={(e) => { if (!window.confirm(`Excluir "${a.nome}"? Isso remove todos os dados vinculados.`)) e.preventDefault(); }}
+              >
+                <input type="hidden" name="intent" value="excluir" />
+                <input type="hidden" name="id" value={a.id} />
+                <button type="submit" style={{ padding: "6px 10px", border: "1px solid #ddd", color: "#aaa", background: "transparent", borderRadius: "6px", fontSize: "13px", cursor: "pointer" }}>
+                  ✕
                 </button>
               </fetcher.Form>
             </div>

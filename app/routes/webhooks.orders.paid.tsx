@@ -2,7 +2,7 @@ import type { ActionFunctionArgs } from "react-router";
 import { authenticate } from "../shopify.server";
 import { supabase } from "../lib/supabase.server";
 import { mesAtual } from "../lib/comissao";
-import { enviarNotificacaoPedido, enviarNotificacaoAdmin, enviarNotificacaoPedidoDesigner } from "../lib/email.server";
+import { enviarNotificacaoPedido, enviarNotificacaoAdmin, enviarNotificacaoPedidoDesigner, enviarNotificacaoAdminDesigner } from "../lib/email.server";
 
 const PORTAL_URL = process.env.APP_URL ? `${process.env.APP_URL}/parcerias` : "https://parcerias.bigfivehype.com.br/parcerias";
 
@@ -164,10 +164,18 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         { onConflict: "shopify_order_id,designer_id,shopify_product_id" }
       );
 
-      if (isPrimeiroPedidoDesigner && d.email) {
-        enviarNotificacaoPedidoDesigner(d.email, d.nome, nomeProduto, valorItem, comissaoDesigner, mes).catch(
-          (e) => console.error("[webhook] Falha ao notificar designer:", e.message)
-        );
+      if (isPrimeiroPedidoDesigner) {
+        if (d.email) {
+          enviarNotificacaoPedidoDesigner(d.email, d.nome, nomeProduto, valorItem, comissaoDesigner, mes).catch(
+            (e) => console.error("[webhook] Falha ao notificar designer:", e.message)
+          );
+        }
+        const adminEmail = process.env.ADMIN_EMAIL;
+        if (adminEmail) {
+          enviarNotificacaoAdminDesigner(adminEmail, d.nome, nomeProduto, valorItem, comissaoDesigner).catch(
+            (e) => console.error("[webhook] Falha ao notificar admin (designer):", e.message)
+          );
+        }
       }
     }
   }

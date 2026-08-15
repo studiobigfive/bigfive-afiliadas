@@ -3,6 +3,7 @@ import type { LoaderFunctionArgs, ActionFunctionArgs } from "react-router";
 import { useLoaderData, Link, Form, useFetcher } from "react-router";
 import { requireAuth } from "../lib/painel.auth.server";
 import { supabase } from "../lib/supabase.server";
+import { backfillProdutoDesigner } from "../lib/backfill.server";
 
 function primeiroDiaMes(yyyymm: string) { return `${yyyymm}-01`; }
 function ultimoDiaMes(yyyymm: string) {
@@ -193,7 +194,20 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
       shopify_product_id: shopifyProductId,
       nome_produto: nomeProduto,
     });
-    return { sucesso: "produto_adicionado" };
+
+    // Recupera vendas antigas desse produto, de antes dele ser vinculado ao designer
+    let vendasRecuperadas = 0;
+    try {
+      const { data: designerAtual } = await supabase.from("designers").select("percentual, cupom").eq("id", id).single();
+      if (designerAtual) {
+        const resultado = await backfillProdutoDesigner(id, shopifyProductId, nomeProduto, designerAtual.percentual, designerAtual.cupom);
+        vendasRecuperadas = resultado.inseridos;
+      }
+    } catch (e: any) {
+      console.error("[painel.designer] falha no backfill automático:", e.message);
+    }
+
+    return { sucesso: "produto_adicionado", vendasRecuperadas };
   }
 
   if (intent === "remove_produto") {
@@ -261,6 +275,7 @@ export default function PainelDesignerDetalhe() {
     pedidosDoMes?: Array<{ nome_produto: string; valor_item: number; comissao: number; criado_em: string }>;
     valorPago?: number;
     mesPago?: string;
+    vendasRecuperadas?: number;
   }>();
   const buscaFetcher = useFetcher<{ produtos: Array<{ id: string; title: string; image: string | null }>; erro?: string | null }>();
   const [confirmado, setConfirmado] = useState(false);
@@ -295,6 +310,27 @@ export default function PainelDesignerDetalhe() {
 
   const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
   const fmtDate = (d: string) => d ? new Date(d).toLocaleDateString("pt-BR") : "—";
+
+  const exportarCSV = () => {
+    const linhas = [
+      ["Produto", "Pedido", "Status", "Valor item", "Comissão", "Data"],
+      ...pedidos.map((p) => [
+        p.nome_produto || "",
+        `#${p.shopify_order_id}`,
+        p.cancelado ? "Cancelado" : "Pago",
+        (p.valor_item ?? 0).toFixed(2).replace(".", ","),
+        (p.comissao ?? 0).toFixed(2).replace(".", ","),
+        fmtDate(p.criado_em),
+      ]),
+    ];
+    const csv = linhas.map((l) => l.map((c) => `"${c}"`).join(";")).join("\n");
+    const url = URL.createObjectURL(new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" }));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${designer.nome}_${de}_${ate}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   const produtosVinculadosSet = new Set(produtosVinculadosIds);
 
@@ -602,7 +638,10 @@ export default function PainelDesignerDetalhe() {
                 <p style={{ margin: "8px 0 0", fontSize: "12px", color: "#e53e3e" }}>{fetcher.data.erro_produto}</p>
               )}
               {fetcher.data?.sucesso === "produto_adicionado" && (
-                <p style={{ margin: "8px 0 0", fontSize: "12px", color: "#38a169", fontWeight: "600" }}>✓ Produto vinculado!</p>
+                <p style={{ margin: "8px 0 0", fontSize: "12px", color: "#38a169", fontWeight: "600" }}>
+                  ✓ Produto vinculado!
+                  {(fetcher.data.vendasRecuperadas ?? 0) > 0 && ` Recuperamos ${fetcher.data.vendasRecuperadas} venda(s) antiga(s) desse produto.`}
+                </p>
               )}
             </div>
 
@@ -641,13 +680,18 @@ export default function PainelDesignerDetalhe() {
 
           {/* Pedidos com designs */}
           <div style={{ ...card, overflow: "hidden" }}>
-            <div style={{ padding: "18px 24px", borderBottom: "1px solid #eee" }}>
+            <div style={{ padding: "18px 24px", borderBottom: "1px solid #eee", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
               <h2 style={{ margin: 0, fontSize: "15px", fontWeight: "700" }}>
                 Pedidos com designs
                 <span style={{ marginLeft: "8px", fontSize: "13px", color: "#aaa", fontWeight: "400" }}>
                   ({pedidos.length}{truncated ? "+" : ""})
                 </span>
               </h2>
+              {pedidos.length > 0 && (
+                <button type="button" onClick={exportarCSV} style={{ padding: "5px 12px", border: "1px solid #ddd", borderRadius: "6px", background: "#fff", fontSize: "12px", fontWeight: "600", color: "#555", cursor: "pointer" }}>
+                  ↓ Exportar CSV
+                </button>
+              )}
             </div>
             {truncated && (
               <div style={{ padding: "8px 24px", background: "#fffbeb", borderBottom: "1px solid #fef3c7", fontSize: "12px", color: "#92400e" }}>

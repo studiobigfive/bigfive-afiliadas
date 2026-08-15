@@ -104,6 +104,35 @@ export async function enviarNotificacaoAdmin(
   if (error) console.error("[email] Falha ao notificar admin:", error.message);
 }
 
+export async function enviarNotificacaoAdminDesigner(
+  adminEmail: string,
+  nomeDesigner: string,
+  nomeProduto: string,
+  valorVenda: number,
+  comissao: number
+) {
+  const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+
+  const { error } = await resend.emails.send({
+    from: process.env.RESEND_FROM || "onboarding@resend.dev",
+    to: adminEmail,
+    subject: `[BigFive] Nova venda de design: ${nomeProduto}`,
+    html: wrapHtml(`
+      <div style="font-family:Inter,sans-serif;max-width:480px;margin:40px auto;padding:32px 24px;background:#fff;border-radius:16px;">
+        <div style="font-weight:800;font-size:18px;letter-spacing:3px;margin-bottom:24px;color:#111;">BIGFIVE — Admin</div>
+        <p style="font-size:15px;color:#333;margin:0 0 16px;">Nova venda registrada via produto de designer:</p>
+        <table style="width:100%;border-collapse:collapse;font-size:14px;">
+          <tr><td style="padding:8px 0;color:#666;">Designer</td><td style="padding:8px 0;font-weight:700;color:#111;">${nomeDesigner}</td></tr>
+          <tr><td style="padding:8px 0;color:#666;">Produto</td><td style="padding:8px 0;font-weight:700;">${nomeProduto}</td></tr>
+          <tr><td style="padding:8px 0;color:#666;">Valor da venda</td><td style="padding:8px 0;font-weight:700;color:#111;">${fmt(valorVenda)}</td></tr>
+          <tr><td style="padding:8px 0;color:#666;">Comissão</td><td style="padding:8px 0;font-weight:700;color:#e53e3e;">${fmt(comissao)}</td></tr>
+        </table>
+      </div>
+    `),
+  });
+  if (error) console.error("[email] Falha ao notificar admin (designer):", error.message);
+}
+
 export async function enviarNotificacaoPedidoDesigner(
   email: string,
   nome: string,

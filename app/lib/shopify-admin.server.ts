@@ -3,7 +3,7 @@ import { supabase } from "./supabase.server";
 // Alinhado com a versão estável que o app usa (ApiVersion.October25 em shopify.server.ts).
 const API_VERSION = "2025-10";
 
-async function getShopifyCredentials(): Promise<{ shop: string; accessToken: string }> {
+export async function getShopifyCredentials(): Promise<{ shop: string; accessToken: string }> {
   const { data } = await supabase
     .from("Session")
     .select("shop, accessToken")

@@ -1,5 +1,11 @@
 {
   "buildCommand": "npx prisma generate && npm run build",
   "installCommand": "npm install",
-  "framework": "react-router"
+  "framework": "react-router",
+  "crons": [
+    {
+      "path": "/api/keepalive",
+      "schedule": "0 0 */3 * *"
+    }
+  ]
 }
